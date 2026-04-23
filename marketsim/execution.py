@@ -5,7 +5,7 @@ import math
 
 from .amounts import MAX_NOTIONAL_USD, MIN_LOT, QTY_EPS, is_valid_cash_notional, is_valid_order_size
 from .clob import BookFill
-from .instrument import Instrument
+from .instrument import AssetClass, Instrument
 from .market import Market, Side
 from .microstruct import scale_fill_prices, slippage_bps_total, taker_notional_cash
 from .player import Player, Result
@@ -299,7 +299,8 @@ def execute_market_order(
                 fee_usd=fee,
                 taker_fee_bps=float(mkt.taker_fee_bps),
             )
-        if pl.sec_fee_sell_bps > 0.0:
+        # SEC-style fee is equity-oriented; skip for crypto.
+        if pl.sec_fee_sell_bps > 0.0 and ins.kind is not AssetClass.CRYPTO:
             pl.charge_sec_fee_sell(n1)
         mkt.record_tape(i, n1)
         mkt.record_trade_volume(i, vol_sum)
@@ -395,7 +396,12 @@ def execute_limit_sell(
                 taker_fee_bps=float(mkt.taker_fee_bps),
             )
         mkt.record_tape(ins.array_index, n_t)
-        if pl.sec_fee_sell_bps > 0.0 and n_t > 0.0:
+        # SEC-style fee is equity-oriented; skip for crypto.
+        if (
+            pl.sec_fee_sell_bps > 0.0
+            and n_t > 0.0
+            and ins.kind is not AssetClass.CRYPTO
+        ):
             pl.charge_sec_fee_sell(n_t)
         mkt.record_trade_volume(ins.array_index, float(sum(float(x.qty) for x in f2)))
     return Result.OK

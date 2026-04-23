@@ -45,6 +45,14 @@ def _make_config(ns: argparse.Namespace) -> GameConfig:
             if ns.mpt is not None
             else 15.0,
             great_depression=bool(getattr(ns, "great_depression", False)),
+            max_leverage=ns.max_leverage if ns.max_leverage is not None else 1.0,
+            maintenance_margin_rate=ns.maintenance
+            if ns.maintenance is not None
+            else 0.2,
+            shorting_enabled=bool(getattr(ns, "shorting", False)),
+            short_borrow_bps_per_sim_day=ns.short_borrow_bps
+            if ns.short_borrow_bps is not None
+            else 0.0,
         )
     c = preset(GameModeName(ns.mode))
     if ns.seed is not None:
@@ -59,6 +67,14 @@ def _make_config(ns: argparse.Namespace) -> GameConfig:
         c = replace(c, sim_minutes_per_tick=ns.mpt)
     if bool(getattr(ns, "great_depression", False)):
         c = replace(c, great_depression=True)
+    if ns.max_leverage is not None:
+        c = replace(c, max_leverage=ns.max_leverage)
+    if ns.maintenance is not None:
+        c = replace(c, maintenance_margin_rate=ns.maintenance)
+    if bool(getattr(ns, "shorting", False)):
+        c = replace(c, shorting_enabled=True)
+    if ns.short_borrow_bps is not None:
+        c = replace(c, short_borrow_bps_per_sim_day=ns.short_borrow_bps)
     return c
 
 
@@ -249,6 +265,31 @@ def main() -> None:
         help="[--custom] cryptos (8 with 32+4 = mega tiered crypto + four index funds)",
     )
     p.add_argument("--spread", type=float, default=10.0, help="[custom] bid/ask spread in bps")
+    p.add_argument(
+        "--shorting",
+        action="store_true",
+        help="Enable short selling (including crypto) if margin allows.",
+    )
+    p.add_argument(
+        "--max-leverage",
+        type=float,
+        default=None,
+        dest="max_leverage",
+        help="Override max gross leverage (e.g. 1.5 means gross <= 1.5x equity).",
+    )
+    p.add_argument(
+        "--maintenance",
+        type=float,
+        default=None,
+        help="Override maintenance margin rate (fraction of gross exposure).",
+    )
+    p.add_argument(
+        "--short-borrow-bps",
+        type=float,
+        default=None,
+        dest="short_borrow_bps",
+        help="Borrow fee in bps per sim day applied to short notional.",
+    )
     p.add_argument(
         "--ticks",
         type=int,
