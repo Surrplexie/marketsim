@@ -30,6 +30,7 @@ MEGA_SECTOR_ETF_BASKET_N = 10
 STOCK_SECTOR_KEYS = ("TECH", "HLTH", "FIN", "ENRG", "CNSM", "INDU", "MATR", "UTIL")
 EW_S10_PREFIX = "ew_s10_"
 EW_ALL_MINI_PREFIX = "ew_allmini_"
+EW_SPX_PREFIX = "ew_spx_"
 EW_S2F_EXP = "ew_s2f_exp"
 EW_C1F_EXP = "ew_c1f_exp"
 
@@ -163,24 +164,14 @@ def _exp_weighted_nav(items: list[Instrument], power: float = 1.35) -> float:
 
 def _auto_all_stock_topn_ladder(n_stocks: int) -> list[int]:
     """
-    One mini-fund per 10 stocks (floor). Each tier picks ~top 1/3 of a step-threshold:
-    10 -> 3, 20 -> 7, 32 -> 11, 50 -> 17, ...
+    SALL tracks only the top third of all stocks (dynamic basket).
+    Keep list-return shape for existing call sites.
     """
 
     n = max(0, int(n_stocks))
-    tiers = n // 10
-    if tiers <= 0:
+    if n < 10:
         return []
-    out: list[int] = []
-    for i in range(1, tiers + 1):
-        if i == tiers:
-            base = n
-        else:
-            base = min(n, i * 10)
-        k = max(1, int(round(float(base) / 3.0)))
-        if not out or out[-1] != k:
-            out.append(k)
-    return out
+    return [max(1, int(round(float(n) / 3.0)))]
 
 
 def _make_mega_cap_universe(rng) -> list[Instrument]:
@@ -317,9 +308,14 @@ def _make_mega_cap_universe(rng) -> list[Instrument]:
         ]
     )
     mini_topn = _auto_all_stock_topn_ladder(len(stocks))
-    for rank, topn in enumerate(mini_topn, start=1):
+    for topn in mini_topn:
         nav_mini = float(mean([s.last for s in stocks[: int(topn)]])) if stocks else nav_t16
         fund_specs.append((f"SALL{int(topn):03d}", nav_mini, f"{EW_ALL_MINI_PREFIX}{int(topn)}"))
+    # Broad stock index tiers (S&P-style mini indexes): top 10/20/30 by rank.
+    for spn in (10, 20, 30):
+        if len(stocks) >= spn:
+            nav_sp = float(mean([s.last for s in stocks[:spn]]))
+            fund_specs.append((f"SPX{spn:02d}", nav_sp, f"{EW_SPX_PREFIX}{spn}"))
     for j, (ftick, last0, ssec) in enumerate(fund_specs):
         f_mcap = float(rng.uniform(20_000_000_000.0, 80_000_000_000.0))
         units = f_mcap / max(last0, 1e-6)
@@ -446,6 +442,27 @@ def _make_classic_universe(
                 last=nav,
                 units_outstanding=units,
                 sector=f"{EW_ALL_MINI_PREFIX}{int(topn)}",
+                array_index=idx,
+            )
+        )
+        idx += 1
+    ranked_all = sorted(stocks_created, key=lambda x: x.market_cap, reverse=True)
+    for spn in (10, 20, 30):
+        use = ranked_all[:spn]
+        if len(use) < spn:
+            continue
+        nav = float(mean([x.last for x in use]))
+        f_mcap = float(rng.uniform(12_000_000_000.0, 55_000_000_000.0))
+        units = f_mcap / max(nav, 1e-6)
+        out.append(
+            Instrument(
+                id=idx,
+                ticker=f"SPX{spn:02d}",
+                kind=AssetClass.FUND,
+                base_annual_vol=float(rng.uniform(0.08, 0.20)),
+                last=nav,
+                units_outstanding=units,
+                sector=f"{EW_SPX_PREFIX}{spn}",
                 array_index=idx,
             )
         )
