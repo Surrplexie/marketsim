@@ -630,7 +630,7 @@ def chart_series(
     ins = m.by_ticker().get(tck)
     if ins is None:
         raise HTTPException(404, "unknown ticker")
-    b = max(1, min(int(bucket), 500))
+    b = max(1, min(int(bucket), 35_040))
     mb = int(max_bars)
     if mb < 0:
         mb = 0

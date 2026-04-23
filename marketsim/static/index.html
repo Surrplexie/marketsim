@@ -514,10 +514,10 @@
                 </div>
                 <div style="display:flex;align-items:center;gap:0.35rem">
                   <span style="font-size:0.6rem;color:var(--text-dim);min-width:0.6rem" title="1 sim tick / sec">1</span>
-                  <input type="range" id="autoRate" class="auto-tps" min="1" max="50" value="1" title="Sim ticks per second" />
-                  <span style="font-size:0.6rem;color:var(--text-dim);min-width:1.1rem;text-align:right" title="50 sim ticks / sec">50</span>
+                  <input type="range" id="autoRate" class="auto-tps" min="1" max="96" value="1" title="Sim ticks per second" />
+                  <span style="font-size:0.6rem;color:var(--text-dim);min-width:1.1rem;text-align:right" title="96 sim ticks / sec">96</span>
                 </div>
-                <p class="auto-run-hint">Stays on while you trade. Left: 1 tick/s — right: 50 ticks/s.</p>
+                <p class="auto-run-hint">Stays on while you trade. Left: 1 tick/s — right: 96 ticks/s.</p>
               </label>
             </div>
             <details id="volPanel" class="vol-regime-panel details-overlay-only" style="margin:0.65rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
@@ -597,7 +597,7 @@
               </div>
             </details>
             <details id="miscPanel" class="miscellaneous-panel details-overlay-only" style="margin:0.65rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
-              <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">&gt; miscellaneous</summary>
+              <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">miscellaneous</summary>
               <div id="miscPanelInner">
                 <p id="greatDepressStatus" class="auto-run-hint" style="margin:0 0 0.25rem 0;min-height:1em"></p>
                 <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer;margin-bottom:0.35rem">
@@ -837,7 +837,7 @@
             <option value="stats">stats</option>
           </select>
         </label>
-        <label>Tick / candle <input id="chartBucket" type="number" min="1" max="80" value="4" style="width:3.2rem" title="How many sim ticks to aggregate per candle" /></label>
+        <label>Tick / candle <input id="chartBucket" type="number" min="1" max="35040" value="4" style="width:4.2rem" title="How many sim ticks to aggregate per candle (max 35,040 = 1 sim year)" /></label>
         <span id="chartMeta" style="font-family:var(--mono)"></span>
       </div>
       <div class="chart-canvas-wrap" id="chartCanvasWrap">
@@ -1096,7 +1096,7 @@
         if ($("cbChaosCryptoWeekend")) $("cbChaosCryptoWeekend").checked = !!p.cbChaosCryptoWeekend;
         if ($("autoRun") && p.autoRun === true) $("autoRun").checked = true;
         if ($("autoRate") && isFinite(+p.autoRate)) {
-          const ar = Math.max(1, Math.min(50, Math.round(+p.autoRate)));
+          const ar = Math.max(1, Math.min(96, Math.round(+p.autoRate)));
           $("autoRate").value = String(ar);
         }
       } catch (e) { /* ignore */ }
@@ -1876,7 +1876,7 @@
     async function loadAndDrawChart() {
       const tk = chartOpenTk;
       if (!tk) return;
-      const b = Math.max(1, Math.min(80, +$("chartBucket").value || 4));
+      const b = Math.max(1, Math.min(35040, +$("chartBucket").value || 4));
       const d = await j(
         "/api/chart/" + encodeURIComponent(tk) + "?bucket=" + b + "&max_bars=0",
         { method: "GET" }
@@ -2007,7 +2007,7 @@
       const el = $("autoRate");
       if (!el) return 1;
       const n = +el.value;
-      return n >= 1 && n <= 50 ? n : 1;
+      return n >= 1 && n <= 96 ? n : 1;
     }
     function syncAutoRateLabel() {
       const el = $("autoRate");
@@ -2428,7 +2428,7 @@
       else if (k === "]") {
         e.preventDefault();
         if ($("autoRate")) {
-          $("autoRate").value = String(Math.min(50, (+$("autoRate").value || 1) + 1));
+          $("autoRate").value = String(Math.min(96, (+$("autoRate").value || 1) + 1));
           $("autoRate").dispatchEvent(new Event("input"));
         }
       }
