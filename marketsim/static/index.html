@@ -457,6 +457,27 @@
             </label>
             <button type="button" class="danger" id="bReset">New game</button>
           </div>
+          <details class="corp-panel" style="margin:0.55rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
+            <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Margin &amp; shorts</summary>
+            <p class="meta-line" style="margin:0.35rem 0 0.35rem; font-size:0.72rem">Applies on <b>New game</b>. Enables shorting (including crypto), leverage cap, maintenance floor, and borrow fee.</p>
+            <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer;margin-bottom:0.35rem">
+              <input type="checkbox" id="cbShorting" style="margin-top:0.2rem" />
+              <span>Enable shorting (stocks, funds, crypto)</span>
+            </label>
+            <div class="row" style="margin-bottom:0.2rem">
+              <label class="fld">Max leverage
+                <input id="maxLeverage" type="number" min="1" max="10" step="0.01" value="1.0" style="width:6.4rem" />
+              </label>
+              <label class="fld">Maintenance
+                <input id="maintenanceRate" type="number" min="0" max="0.95" step="0.01" value="0.2" style="width:6.4rem" />
+              </label>
+            </div>
+            <div class="row" style="margin-bottom:0">
+              <label class="fld">Short borrow (bps/day)
+                <input id="shortBorrowBps" type="number" min="0" max="5000" step="0.01" value="0.0" style="width:8rem" />
+              </label>
+            </div>
+          </details>
           <p id="greatDepressStatus" class="auto-run-hint" style="margin:0.35rem 0 0.15rem 0;min-height:1em"></p>
           <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer">
             <input type="checkbox" id="cbGreatDep" style="margin-top:0.2rem" />
@@ -1071,6 +1092,23 @@
         }
       }
       const p = s.player;
+      const mgn = (p && p.margin) ? p.margin : null;
+      if (mgn) {
+        const cbSh = $("cbShorting");
+        const inLev = $("maxLeverage");
+        const inMaint = $("maintenanceRate");
+        const inBor = $("shortBorrowBps");
+        if (cbSh) cbSh.checked = !!mgn.shorting;
+        if (inLev && document.activeElement !== inLev && isFinite(+mgn.max_leverage)) {
+          inLev.value = String(+mgn.max_leverage);
+        }
+        if (inMaint && document.activeElement !== inMaint && isFinite(+mgn.maintenance_rate)) {
+          inMaint.value = String(+mgn.maintenance_rate);
+        }
+        if (inBor && document.activeElement !== inBor && isFinite(+mgn.borrow_bps_per_sim_day)) {
+          inBor.value = String(+mgn.borrow_bps_per_sim_day);
+        }
+      }
       const scIn = $("startingCash");
       if (scIn && s.tick === 0 && typeof p.cash === "number" && isFinite(p.cash)) {
         if (document.activeElement !== scIn) {
@@ -1535,6 +1573,10 @@
           mode: $("resetMode").value,
           great_depression: $("cbGreatDep") && $("cbGreatDep").checked,
           starting_cash: c0,
+          shorting: $("cbShorting") && $("cbShorting").checked,
+          max_leverage: +($("maxLeverage") && $("maxLeverage").value != null ? $("maxLeverage").value : 1.0),
+          maintenance_rate: +($("maintenanceRate") && $("maintenanceRate").value != null ? $("maintenanceRate").value : 0.2),
+          short_borrow_bps_per_sim_day: +($("shortBorrowBps") && $("shortBorrowBps").value != null ? $("shortBorrowBps").value : 0.0),
         }),
       });
       await refresh();

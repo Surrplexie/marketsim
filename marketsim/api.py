@@ -461,6 +461,42 @@ def reset(body: dict | None = Body(default=None)) -> Any:
                 f"starting_cash must be between {STARTING_CASH_MIN_USD} and {STARTING_CASH_MAX_USD} USD",
             )
         c = replace(c, starting_cash=float(sc))
+    raw_shorting = body.get("shorting", body.get("shorting_enabled"))
+    if raw_shorting is not None:
+        c = replace(c, shorting_enabled=bool(raw_shorting))
+    raw_lev = body.get("max_leverage", body.get("maxLeverage"))
+    if raw_lev is not None and str(raw_lev).strip() != "":
+        try:
+            lev = float(raw_lev)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(400, "max_leverage must be a number") from e
+        if not math.isfinite(lev):
+            raise HTTPException(400, "max_leverage must be finite")
+        if lev < 1.0 or lev > 10.0:
+            raise HTTPException(400, "max_leverage must be between 1.0 and 10.0")
+        c = replace(c, max_leverage=lev)
+    raw_maint = body.get("maintenance_rate", body.get("maintenance"))
+    if raw_maint is not None and str(raw_maint).strip() != "":
+        try:
+            maint = float(raw_maint)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(400, "maintenance_rate must be a number") from e
+        if not math.isfinite(maint):
+            raise HTTPException(400, "maintenance_rate must be finite")
+        if maint < 0.0 or maint > 0.95:
+            raise HTTPException(400, "maintenance_rate must be between 0.0 and 0.95")
+        c = replace(c, maintenance_margin_rate=maint)
+    raw_borrow = body.get("short_borrow_bps_per_sim_day", body.get("short_borrow_bps"))
+    if raw_borrow is not None and str(raw_borrow).strip() != "":
+        try:
+            bbps = float(raw_borrow)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(400, "short_borrow_bps_per_sim_day must be a number") from e
+        if not math.isfinite(bbps):
+            raise HTTPException(400, "short_borrow_bps_per_sim_day must be finite")
+        if bbps < 0.0 or bbps > 5000.0:
+            raise HTTPException(400, "short_borrow_bps_per_sim_day must be between 0 and 5000")
+        c = replace(c, short_borrow_bps_per_sim_day=bbps)
     set_game(new_session(custom=c))
     return _state()
 
