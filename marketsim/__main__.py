@@ -34,13 +34,13 @@ def _make_config(ns: argparse.Namespace) -> GameConfig:
         return build_custom(
             wall_seconds_per_tick=ns.wall if ns.wall is not None else 0.3,
             sim_time_scale=ns.time_scale if ns.time_scale is not None else 1.0,
-            vol_multiplier=ns.vol,
-            drift_bias=ns.drift,
+            vol_multiplier=ns.vol if ns.vol is not None else 1.0,
+            drift_bias=ns.drift if ns.drift is not None else 0.0,
             starting_cash=ns.cash if ns.cash is not None else 25_000_000.0,
-            n_stocks=ns.n_stocks,
-            n_funds=ns.n_funds,
-            n_crypto=ns.n_crypto,
-            spread_bps=ns.spread,
+            n_stocks=ns.n_stocks if ns.n_stocks is not None else 20,
+            n_funds=ns.n_funds if ns.n_funds is not None else 3,
+            n_crypto=ns.n_crypto if ns.n_crypto is not None else 5,
+            spread_bps=ns.spread if ns.spread is not None else 10.0,
             seed=ns.seed,
             sim_minutes_per_tick=ns.mpt
             if ns.mpt is not None
@@ -62,6 +62,18 @@ def _make_config(ns: argparse.Namespace) -> GameConfig:
         c = replace(c, wall_seconds_per_tick=ns.wall)
     if ns.time_scale is not None:
         c = replace(c, sim_time_scale=ns.time_scale)
+    if ns.vol is not None:
+        c = replace(c, vol_multiplier=ns.vol)
+    if ns.drift is not None:
+        c = replace(c, drift_bias=ns.drift)
+    if ns.spread is not None:
+        c = replace(c, spread_bps=ns.spread)
+    if ns.n_stocks is not None:
+        c = replace(c, n_stocks=max(0, int(ns.n_stocks)))
+    if ns.n_funds is not None:
+        c = replace(c, n_funds=max(0, int(ns.n_funds)))
+    if ns.n_crypto is not None:
+        c = replace(c, n_crypto=max(0, int(ns.n_crypto)))
     if ns.cash is not None and ns.custom is False:
         c = replace(c, starting_cash=ns.cash)
     if ns.mpt is not None and ns.custom is False:
@@ -241,31 +253,31 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--wall", type=float, default=None, help="Override wall seconds per tick")
     p.add_argument("--time-scale", type=float, default=None, dest="time_scale")
-    p.add_argument("--vol", type=float, default=1.0, help="[custom] vol multiplier")
-    p.add_argument("--drift", type=float, default=0.0, help="[custom] drift bias")
+    p.add_argument("--vol", type=float, default=None, help="Vol multiplier override")
+    p.add_argument("--drift", type=float, default=None, help="Drift bias override")
     p.add_argument("--cash", type=float, default=None)
     p.add_argument(
         "--n-stocks",
         type=int,
-        default=20,
+        default=None,
         dest="n_stocks",
-        help="[--custom] count (32+4+8 = mega-cap universe; other mixes use classic generator)",
+        help="Stock count override (32+4+8 = mega-cap universe; other mixes use classic generator)",
     )
     p.add_argument(
         "--n-funds",
         type=int,
-        default=3,
+        default=None,
         dest="n_funds",
-        help="[--custom] fund count (use 4 with 32 stocks + 8 crypto for mega T16/T25/C3/S10 index set)",
+        help="Fund count override (use 4 with 32 stocks + 8 crypto for mega T16/T25/C3/S10 index set)",
     )
     p.add_argument(
         "--n-crypto",
         type=int,
-        default=5,
+        default=None,
         dest="n_crypto",
-        help="[--custom] cryptos (8 with 32+4 = mega tiered crypto + four index funds)",
+        help="Crypto count override (8 with 32+4 = mega tiered crypto + four index funds)",
     )
-    p.add_argument("--spread", type=float, default=10.0, help="[custom] bid/ask spread in bps")
+    p.add_argument("--spread", type=float, default=None, help="Bid/ask spread override in bps")
     p.add_argument(
         "--shorting",
         action="store_true",
