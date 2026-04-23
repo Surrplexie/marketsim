@@ -71,6 +71,16 @@ class Market:
     open_liquidity_fade_sim_minutes: float = 105.0
     # Mean sim ticks between random headline shocks (geometric-ish draw each tick).
     headline_mean_ticks: float = 2400.0
+    chaos_flash_crash: bool = False
+    chaos_meme_squeeze: bool = False
+    chaos_fat_finger: bool = False
+    chaos_exchange_halt: bool = False
+    chaos_rumor_mill: bool = False
+    chaos_sector_rotation: bool = False
+    chaos_funding_panic: bool = False
+    chaos_liquidity_drought: bool = False
+    chaos_whale_rebalance: bool = False
+    chaos_crypto_weekend_mania: bool = False
     _rng: np.random.Generator = field(init=False, repr=False)
     _mids: Array = field(init=False, repr=False)
     _mu: Array = field(init=False, repr=False)
@@ -121,6 +131,12 @@ class Market:
     _trend_custom: set[str] = field(default_factory=set, init=False, repr=False)
     # -10..+10, 0 = off: scales listed equity *μ* (long-run growth); **σ** for crypto *and* stocks/funds (≈10× at +10).
     _volatility_value: int = field(default=0, init=False, repr=False)
+    _chaos_once_flash_done: bool = field(default=False, init=False, repr=False)
+    _chaos_halt_until_tick: np.ndarray = field(init=False, repr=False)
+    _chaos_price_shock_bps: np.ndarray = field(init=False, repr=False)
+    _chaos_sigma_addon: np.ndarray = field(init=False, repr=False)
+    _chaos_funding_panic_until: int = field(default=0, init=False, repr=False)
+    _chaos_liquidity_drought_until: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._rng = new_rng(self.seed)
@@ -198,6 +214,9 @@ class Market:
         self._vol_snapshot = self._cumulative_volume.copy()
         self._financing_long_bps = np.zeros(n, dtype=np.float64)
         self._financing_short_bps = np.zeros(n, dtype=np.float64)
+        self._chaos_halt_until_tick = np.zeros(n, dtype=np.int64)
+        self._chaos_price_shock_bps = np.zeros(n, dtype=np.float64)
+        self._chaos_sigma_addon = np.zeros(n, dtype=np.float64)
 
     def record_trade_volume(self, j: int, qty: float) -> None:
         """Add *qty* from CLOB fills to session volume (also grows from natural turnover each *step*)."""
@@ -723,6 +742,120 @@ class Market:
             "ticks_to_event": None,
         }
 
+    def chaos_settings(self) -> dict[str, bool]:
+        return {
+            "flash_crash": bool(self.chaos_flash_crash),
+            "meme_squeeze": bool(self.chaos_meme_squeeze),
+            "fat_finger": bool(self.chaos_fat_finger),
+            "exchange_halt": bool(self.chaos_exchange_halt),
+            "rumor_mill": bool(self.chaos_rumor_mill),
+            "sector_rotation": bool(self.chaos_sector_rotation),
+            "funding_panic": bool(self.chaos_funding_panic),
+            "liquidity_drought": bool(self.chaos_liquidity_drought),
+            "whale_rebalance": bool(self.chaos_whale_rebalance),
+            "crypto_weekend_mania": bool(self.chaos_crypto_weekend_mania),
+        }
+
+    def _chaos_emit_news(self, line: str, tag: str) -> None:
+        self._news.append({"tick": int(self._tick), "line": str(line), "tag": str(tag)})
+
+    def _chaos_apply_price_shock_bps(self, j: int, bps: float) -> None:
+        if not (0 <= int(j) < int(self._mids.size)):
+            return
+        b = float(bps)
+        if not math.isfinite(b) or abs(b) < 1e-9:
+            return
+        m0 = float(self._mids[j])
+        d = m0 * b / 10_000.0
+        if not math.isfinite(d) or abs(d) < 1e-12:
+            return
+        self.books[j].shift_price_levels(d)
+        self._mids[j] = max(float(MIN_MID), m0 + d)
+        self.instruments[j].last = float(self._mids[j])
+        self._bump_mids_in_histories(j, d)
+
+    def _apply_chaos_events_pre_gbm(self) -> None:
+        n = int(self._mids.size)
+        if n <= 0:
+            return
+        stocks = list(self._stock_indices)
+        cryptos = list(self._crypto_index)
+        # 1) Flash crash roulette (one-shot each session).
+        if self.chaos_flash_crash and (not self._chaos_once_flash_done) and self._tick > 150:
+            if float(self._rng.random()) < 1.2e-4:
+                j = int(self._rng.choice(np.array(stocks if stocks else list(range(n)), dtype=np.int64)))
+                drop = float(self._rng.uniform(2000.0, 6000.0))
+                self._chaos_apply_price_shock_bps(j, -drop)
+                self._chaos_once_flash_done = True
+                self._chaos_emit_news(f"{self.instruments[j].ticker}: flash-crash roulette hit ({drop/100:.1f}%).", "chaos:flash_crash")
+        # 2) Meme squeeze.
+        if self.chaos_meme_squeeze and stocks and float(self._rng.random()) < 4.0e-4:
+            j = int(self._rng.choice(np.array(stocks, dtype=np.int64)))
+            self._chaos_price_shock_bps[j] += float(self._rng.uniform(65.0, 230.0))
+            self._chaos_sigma_addon[j] = min(2.5, float(self._chaos_sigma_addon[j]) + float(self._rng.uniform(0.22, 0.65)))
+            self._chaos_emit_news(f"{self.instruments[j].ticker}: meme squeeze impulse.", "chaos:meme_squeeze")
+        # 3) Fat finger event.
+        if self.chaos_fat_finger and float(self._rng.random()) < 4.0e-4:
+            j = int(self._rng.integers(0, n))
+            bps = float(self._rng.uniform(-180.0, 180.0))
+            self._chaos_apply_price_shock_bps(j, bps)
+            self._chaos_emit_news(f"{self.instruments[j].ticker}: fat-finger sweep ({bps:+.0f} bps).", "chaos:fat_finger")
+        # 4) Exchange halt.
+        if self.chaos_exchange_halt and stocks and float(self._rng.random()) < 2.0e-4:
+            j = int(self._rng.choice(np.array(stocks, dtype=np.int64)))
+            dur = int(self._rng.integers(10, 41))
+            self._chaos_halt_until_tick[j] = max(int(self._chaos_halt_until_tick[j]), int(self._tick + dur))
+            self._chaos_emit_news(f"{self.instruments[j].ticker}: exchange halt ({dur} ticks).", "chaos:halt")
+        # 5) Rumor mill.
+        if self.chaos_rumor_mill and stocks and float(self._rng.random()) < 6.0e-4:
+            j = int(self._rng.choice(np.array(stocks, dtype=np.int64)))
+            sign = -1.0 if float(self._rng.random()) < 0.5 else 1.0
+            self._chaos_price_shock_bps[j] += sign * float(self._rng.uniform(40.0, 170.0))
+            self._chaos_sigma_addon[j] = min(2.5, float(self._chaos_sigma_addon[j]) + float(self._rng.uniform(0.15, 0.45)))
+            self._chaos_emit_news(f"{self.instruments[j].ticker}: rumor-mill shock ({'up' if sign > 0 else 'down'}).", "chaos:rumor")
+        # 6) Sector rotation storm.
+        if self.chaos_sector_rotation and stocks and float(self._rng.random()) < 3.5e-4:
+            keys = sorted({str(self.instruments[j].sector) for j in stocks if str(self.instruments[j].sector) in STOCK_SECTOR_KEYS})
+            if len(keys) >= 2:
+                out_k = str(self._rng.choice(np.array(keys, dtype=object)))
+                in_k = str(self._rng.choice(np.array([k for k in keys if k != out_k], dtype=object)))
+                for j in stocks:
+                    sk = str(self.instruments[j].sector)
+                    if sk == in_k:
+                        self._chaos_price_shock_bps[j] += float(self._rng.uniform(18.0, 55.0))
+                    elif sk == out_k:
+                        self._chaos_price_shock_bps[j] -= float(self._rng.uniform(18.0, 55.0))
+                self._chaos_emit_news(f"Sector rotation storm: into {in_k}, out of {out_k}.", "chaos:rotation")
+        # 7) Funding panic window.
+        if self.chaos_funding_panic and float(self._rng.random()) < 2.5e-4:
+            dur = int(self._rng.integers(25, 95))
+            self._chaos_funding_panic_until = max(int(self._chaos_funding_panic_until), int(self._tick + dur))
+            self._chaos_emit_news(f"Funding panic: borrow/funding spike for {dur} ticks.", "chaos:funding")
+        # 8) Liquidity drought window.
+        if self.chaos_liquidity_drought and float(self._rng.random()) < 2.5e-4:
+            dur = int(self._rng.integers(20, 85))
+            self._chaos_liquidity_drought_until = max(int(self._chaos_liquidity_drought_until), int(self._tick + dur))
+            self._chaos_emit_news(f"Liquidity drought: widened spreads for {dur} ticks.", "chaos:drought")
+        # 9) Whale rebalance.
+        if self.chaos_whale_rebalance and stocks and float(self._rng.random()) < 2.8e-4:
+            ranked = sorted(stocks, key=lambda j0: -self._mcap(j0))
+            k = max(2, min(len(ranked), max(2, len(ranked) // 8)))
+            for idx, j in enumerate(ranked[:k]):
+                sgn = 1.0 if idx < (k // 2) else -1.0
+                self._chaos_price_shock_bps[j] += sgn * float(self._rng.uniform(16.0, 52.0))
+            self._chaos_emit_news("Whale rebalance: heavyweight basket rotation.", "chaos:whale")
+        # 10) Crypto weekend mania.
+        if self.chaos_crypto_weekend_mania and cryptos:
+            day_idx = int((int(self._tick) * max(float(self.sim_minutes_per_tick), 1e-9)) // 1440) % 7
+            is_weekend = day_idx in (5, 6)
+            if is_weekend:
+                for j in cryptos:
+                    self._chaos_sigma_addon[j] = min(2.5, float(self._chaos_sigma_addon[j]) + 0.08)
+                if float(self._rng.random()) < 8.0e-4:
+                    j = int(self._rng.choice(np.array(cryptos, dtype=np.int64)))
+                    self._chaos_apply_price_shock_bps(j, float(self._rng.uniform(-220.0, 220.0)))
+                    self._chaos_emit_news(f"{self.instruments[j].ticker}: weekend mania wick.", "chaos:weekend")
+
     def _apply_crypto_sigma_mcaps(self, mids: Array) -> None:
         """Set *_sigma* for each crypto from current mcap (vs. peers) and *baseline* vol."""
 
@@ -792,6 +925,8 @@ class Market:
         fade_m = max(1.0, float(self.open_liquidity_fade_sim_minutes))
         fade = max(0.0, 1.0 - minute / fade_m)
         extra_bps = max(0.0, float(self.open_liquidity_extra_bps_peak)) * fade
+        if self.chaos_liquidity_drought and int(self._tick) < int(self._chaos_liquidity_drought_until):
+            extra_bps += 16.0
         day_idx = int((int(self._tick) * max(float(self.sim_minutes_per_tick), 1e-9)) // 1440) % 7
         is_weekend = day_idx in (5, 6)
         listed_open = 570.0 <= minute <= 960.0  # ~09:30-16:00
@@ -968,6 +1103,9 @@ class Market:
             else:
                 off_hr = 0.35 if not listed_open else 0.0
                 self._financing_short_bps[j] = min(5.0, 0.1 + 80.0 * sig + off_hr)
+            if self.chaos_funding_panic and int(self._tick) < int(self._chaos_funding_panic_until):
+                self._financing_short_bps[j] *= 2.6
+                self._financing_long_bps[j] += 0.5
 
     def financing_bps_for_index(self, j: int) -> tuple[float, float]:
         if 0 <= int(j) < int(self._mids.size):
@@ -983,6 +1121,7 @@ class Market:
 
     def step(self) -> None:
         self._apply_opening_calendar_spreads()
+        self._apply_chaos_events_pre_gbm()
         self._decay_headline_vol_addon()
         self._maybe_roll_headline()
         t0 = self._mids.copy()
@@ -1019,6 +1158,8 @@ class Market:
                     self._sigma[j] = float(max(self._sigma[j] * v_sig, 1e-12))
         ha = np.clip(self._headline_vol_addon, 0.0, 2.5)
         self._sigma = self._sigma * (1.0 + ha)
+        if int(self._chaos_sigma_addon.size) == int(self._sigma.size):
+            self._sigma = self._sigma * (1.0 + np.clip(self._chaos_sigma_addon, 0.0, 2.5))
         _min_d = sim_minute_of_day(int(self._tick), self.sim_minutes_per_tick)
         _tshape = tod_drift_shape(_min_d)
         _todw = (float(self.tod_signature_bps) / 10_000.0) * _tshape
@@ -1061,6 +1202,16 @@ class Market:
         before = self._mids.copy()
         self._mids = batch_gbm(self._mids, self._mu, self._sigma, dt=self.dt, rng=self._rng)
         self._mids = np.maximum(self._mids, float(MIN_MID))
+        if int(self._chaos_price_shock_bps.size) == int(self._mids.size):
+            shock_ratio = np.clip(self._chaos_price_shock_bps, -8000.0, 8000.0) / 10_000.0
+            self._mids = np.maximum(float(MIN_MID), self._mids * (1.0 + shock_ratio))
+            self._chaos_price_shock_bps *= 0.60
+        if int(self._chaos_sigma_addon.size) == int(self._mids.size):
+            self._chaos_sigma_addon *= 0.88
+        if int(self._chaos_halt_until_tick.size) == int(self._mids.size):
+            for j in range(n):
+                if int(self._chaos_halt_until_tick[j]) > int(self._tick):
+                    self._mids[j] = float(t0[j])
         for j in range(n):
             dmag = round_magnet_delta(float(self._mids[j]), float(self.round_magnet_bps))
             self._mids[j] = max(float(MIN_MID), float(self._mids[j] + dmag))

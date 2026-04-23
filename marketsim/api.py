@@ -142,6 +142,7 @@ def _state() -> dict[str, Any]:
         "order_log": olog,
         "great_depression": bool(gds["armed"]),
         "depression": gds,
+        "misc": {"chaos": m.chaos_settings()},
         "time": {
             "sim_minutes_per_tick": s.config.sim_minutes_per_tick,
             "stock_fund_annual_return": s.config.stock_fund_annual_return,
@@ -505,6 +506,21 @@ def reset(body: dict | None = Body(default=None)) -> Any:
     c = preset(_parse_mode(mode))
     if bool(body.get("great_depression")):
         c = replace(c, great_depression=True)
+    chaos_map = {
+        "chaos_flash_crash": "chaos_flash_crash",
+        "chaos_meme_squeeze": "chaos_meme_squeeze",
+        "chaos_fat_finger": "chaos_fat_finger",
+        "chaos_exchange_halt": "chaos_exchange_halt",
+        "chaos_rumor_mill": "chaos_rumor_mill",
+        "chaos_sector_rotation": "chaos_sector_rotation",
+        "chaos_funding_panic": "chaos_funding_panic",
+        "chaos_liquidity_drought": "chaos_liquidity_drought",
+        "chaos_whale_rebalance": "chaos_whale_rebalance",
+        "chaos_crypto_weekend_mania": "chaos_crypto_weekend_mania",
+    }
+    for req_key, cfg_key in chaos_map.items():
+        if req_key in body:
+            c = replace(c, **{cfg_key: bool(body.get(req_key))})
     raw_sc = body.get("starting_cash", body.get("startingCash"))
     if raw_sc is not None and str(raw_sc).strip() != "":
         try:

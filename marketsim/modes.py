@@ -46,6 +46,17 @@ class GameConfig:
     stock_fund_annual_return: float = 0.08
     # If True for a new session: a crash fires once at a random tick in [500,1000], then reverts; option is one-shot.
     great_depression: bool = False
+    # Optional chaos toggles (misc panel).
+    chaos_flash_crash: bool = False
+    chaos_meme_squeeze: bool = False
+    chaos_fat_finger: bool = False
+    chaos_exchange_halt: bool = False
+    chaos_rumor_mill: bool = False
+    chaos_sector_rotation: bool = False
+    chaos_funding_panic: bool = False
+    chaos_liquidity_drought: bool = False
+    chaos_whale_rebalance: bool = False
+    chaos_crypto_weekend_mania: bool = False
     # Crypto: top *N* by mcap are calmer; below that, *higher* vol as mcap is smaller
     crypto_top_tier: int = 3
     crypto_tier_vol_mult: float = 0.72
@@ -182,6 +193,16 @@ def build_custom(
     sim_minutes_per_tick: float = 15.0,
     stock_fund_annual_return: float = 0.08,
     great_depression: bool = False,
+    chaos_flash_crash: bool = False,
+    chaos_meme_squeeze: bool = False,
+    chaos_fat_finger: bool = False,
+    chaos_exchange_halt: bool = False,
+    chaos_rumor_mill: bool = False,
+    chaos_sector_rotation: bool = False,
+    chaos_funding_panic: bool = False,
+    chaos_liquidity_drought: bool = False,
+    chaos_whale_rebalance: bool = False,
+    chaos_crypto_weekend_mania: bool = False,
     crypto_top_tier: int = 3,
     crypto_tier_vol_mult: float = 0.72,
     crypto_mcap_vol_power: float = 0.22,
@@ -225,6 +246,16 @@ def build_custom(
         crypto_mcap_ref_usd=crypto_mcap_ref_usd,
         crypto_vol_max_mult=crypto_vol_max_mult,
         great_depression=great_depression,
+        chaos_flash_crash=chaos_flash_crash,
+        chaos_meme_squeeze=chaos_meme_squeeze,
+        chaos_fat_finger=chaos_fat_finger,
+        chaos_exchange_halt=chaos_exchange_halt,
+        chaos_rumor_mill=chaos_rumor_mill,
+        chaos_sector_rotation=chaos_sector_rotation,
+        chaos_funding_panic=chaos_funding_panic,
+        chaos_liquidity_drought=chaos_liquidity_drought,
+        chaos_whale_rebalance=chaos_whale_rebalance,
+        chaos_crypto_weekend_mania=chaos_crypto_weekend_mania,
         taker_fee_bps=taker_fee_bps,
         slippage_bps_base=slippage_bps_base,
         slippage_bps_per_million=slippage_bps_per_million,

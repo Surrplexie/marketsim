@@ -312,7 +312,8 @@
     details.details-overlay-only.vol-regime-panel > summary::before,
     details.details-overlay-only.trend-override-panel > summary::before,
     details.details-overlay-only.starting-cash-panel > summary::before,
-    details.details-overlay-only.preset-session-panel > summary::before {
+    details.details-overlay-only.preset-session-panel > summary::before,
+    details.details-overlay-only.miscellaneous-panel > summary::before {
       content: "▶";
       display: inline-block;
       font-size: 0.5rem;
@@ -594,11 +595,26 @@
                 </div>
               </div>
             </details>
-            <p id="greatDepressStatus" class="auto-run-hint" style="margin:0.35rem 0 0.15rem 0;min-height:1em"></p>
-            <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer">
-              <input type="checkbox" id="cbGreatDep" style="margin-top:0.2rem" />
-              <span>Great Depression: one crash in 500–1000 ticks, then <span style="color:var(--text-dim)">most names</span> toward 99% of pre-crash. Option ends after the crash. ~1% of issues stay bad.</span>
-            </label>
+            <details id="miscPanel" class="miscellaneous-panel details-overlay-only" style="margin:0.65rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
+              <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">&gt; miscellaneous</summary>
+              <div id="miscPanelInner">
+                <p id="greatDepressStatus" class="auto-run-hint" style="margin:0 0 0.25rem 0;min-height:1em"></p>
+                <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer;margin-bottom:0.35rem">
+                  <input type="checkbox" id="cbGreatDep" style="margin-top:0.2rem" />
+                  <span>Great Depression: one crash in 500–1000 ticks, then <span style="color:var(--text-dim)">most names</span> toward 99% of pre-crash. Option ends after the crash. ~1% of issues stay bad.</span>
+                </label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosFlashCrash" style="width:auto" /><span>Flash crash roulette</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosMemeSqueeze" style="width:auto" /><span>Meme squeeze</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosFatFinger" style="width:auto" /><span>Fat finger event</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosExchangeHalt" style="width:auto" /><span>Exchange halt</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosRumorMill" style="width:auto" /><span>Rumor mill</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosSectorRotation" style="width:auto" /><span>Sector rotation storm</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosFundingPanic" style="width:auto" /><span>Funding panic</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosLiquidityDrought" style="width:auto" /><span>Liquidity drought</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem;margin-bottom:0.2rem"><input type="checkbox" id="cbChaosWhaleRebalance" style="width:auto" /><span>Whale rebalance</span></label>
+                <label class="fld" style="font-size:0.72rem;flex-direction:row;align-items:center;gap:0.35rem"><input type="checkbox" id="cbChaosCryptoWeekend" style="width:auto" /><span>Crypto weekend mania</span></label>
+              </div>
+            </details>
           </div>
           <div class="aside-panel-footer">
             <details id="presetSessionPanel" class="preset-session-panel details-overlay-only" style="margin:0; padding:0; border:0">
@@ -1066,6 +1082,17 @@
         if ($("confirmNotional") && isFinite(+p.confirmNotional)) $("confirmNotional").value = String(+p.confirmNotional);
         if ($("resetMode") && p.resetMode) $("resetMode").value = p.resetMode;
         if ($("chartDefaultMode") && p.chartDefaultMode) $("chartDefaultMode").value = p.chartDefaultMode;
+        if ($("cbGreatDep")) $("cbGreatDep").checked = !!p.cbGreatDep;
+        if ($("cbChaosFlashCrash")) $("cbChaosFlashCrash").checked = !!p.cbChaosFlashCrash;
+        if ($("cbChaosMemeSqueeze")) $("cbChaosMemeSqueeze").checked = !!p.cbChaosMemeSqueeze;
+        if ($("cbChaosFatFinger")) $("cbChaosFatFinger").checked = !!p.cbChaosFatFinger;
+        if ($("cbChaosExchangeHalt")) $("cbChaosExchangeHalt").checked = !!p.cbChaosExchangeHalt;
+        if ($("cbChaosRumorMill")) $("cbChaosRumorMill").checked = !!p.cbChaosRumorMill;
+        if ($("cbChaosSectorRotation")) $("cbChaosSectorRotation").checked = !!p.cbChaosSectorRotation;
+        if ($("cbChaosFundingPanic")) $("cbChaosFundingPanic").checked = !!p.cbChaosFundingPanic;
+        if ($("cbChaosLiquidityDrought")) $("cbChaosLiquidityDrought").checked = !!p.cbChaosLiquidityDrought;
+        if ($("cbChaosWhaleRebalance")) $("cbChaosWhaleRebalance").checked = !!p.cbChaosWhaleRebalance;
+        if ($("cbChaosCryptoWeekend")) $("cbChaosCryptoWeekend").checked = !!p.cbChaosCryptoWeekend;
         if ($("autoRun") && p.autoRun === true) $("autoRun").checked = true;
         if ($("autoRate") && isFinite(+p.autoRate)) {
           const ar = Math.max(1, Math.min(50, Math.round(+p.autoRate)));
@@ -1088,6 +1115,17 @@
           confirmNotional: $("confirmNotional") ? +$("confirmNotional").value || 250000 : 250000,
           resetMode: $("resetMode") ? $("resetMode").value : "simple",
           chartDefaultMode: $("chartDefaultMode") ? $("chartDefaultMode").value : "price",
+          cbGreatDep: $("cbGreatDep") ? !!$("cbGreatDep").checked : false,
+          cbChaosFlashCrash: $("cbChaosFlashCrash") ? !!$("cbChaosFlashCrash").checked : false,
+          cbChaosMemeSqueeze: $("cbChaosMemeSqueeze") ? !!$("cbChaosMemeSqueeze").checked : false,
+          cbChaosFatFinger: $("cbChaosFatFinger") ? !!$("cbChaosFatFinger").checked : false,
+          cbChaosExchangeHalt: $("cbChaosExchangeHalt") ? !!$("cbChaosExchangeHalt").checked : false,
+          cbChaosRumorMill: $("cbChaosRumorMill") ? !!$("cbChaosRumorMill").checked : false,
+          cbChaosSectorRotation: $("cbChaosSectorRotation") ? !!$("cbChaosSectorRotation").checked : false,
+          cbChaosFundingPanic: $("cbChaosFundingPanic") ? !!$("cbChaosFundingPanic").checked : false,
+          cbChaosLiquidityDrought: $("cbChaosLiquidityDrought") ? !!$("cbChaosLiquidityDrought").checked : false,
+          cbChaosWhaleRebalance: $("cbChaosWhaleRebalance") ? !!$("cbChaosWhaleRebalance").checked : false,
+          cbChaosCryptoWeekend: $("cbChaosCryptoWeekend") ? !!$("cbChaosCryptoWeekend").checked : false,
           autoRun: $("autoRun") ? !!$("autoRun").checked : false,
           autoRate: $("autoRate") ? getAutoTps() : 1,
         }));
@@ -1354,6 +1392,7 @@
       { kind: "starting", mount: "startingCashPanelInner", root: "startingCashPanel" },
       { kind: "vol", mount: "volPanelInner", root: "volPanel" },
       { kind: "trend", mount: "trendPanelInner", root: "trendPanel" },
+      { kind: "misc", mount: "miscPanelInner", root: "miscPanel" },
       { kind: "preset", mount: "presetSessionPanelInner", root: "presetSessionPanel" },
     ];
     function buildNewsPanelHtml(s) {
@@ -1478,6 +1517,7 @@
         trend: "Trend override",
         starting: "Starting cash (USD)",
         margin: "Margin & shorts",
+        misc: "Miscellaneous",
         preset: "Preset · New game",
       };
       infoPanelKind = kind;
@@ -2146,6 +2186,16 @@
         body: JSON.stringify({
           mode: $("resetMode").value,
           great_depression: $("cbGreatDep") && $("cbGreatDep").checked,
+          chaos_flash_crash: $("cbChaosFlashCrash") && $("cbChaosFlashCrash").checked,
+          chaos_meme_squeeze: $("cbChaosMemeSqueeze") && $("cbChaosMemeSqueeze").checked,
+          chaos_fat_finger: $("cbChaosFatFinger") && $("cbChaosFatFinger").checked,
+          chaos_exchange_halt: $("cbChaosExchangeHalt") && $("cbChaosExchangeHalt").checked,
+          chaos_rumor_mill: $("cbChaosRumorMill") && $("cbChaosRumorMill").checked,
+          chaos_sector_rotation: $("cbChaosSectorRotation") && $("cbChaosSectorRotation").checked,
+          chaos_funding_panic: $("cbChaosFundingPanic") && $("cbChaosFundingPanic").checked,
+          chaos_liquidity_drought: $("cbChaosLiquidityDrought") && $("cbChaosLiquidityDrought").checked,
+          chaos_whale_rebalance: $("cbChaosWhaleRebalance") && $("cbChaosWhaleRebalance").checked,
+          chaos_crypto_weekend_mania: $("cbChaosCryptoWeekend") && $("cbChaosCryptoWeekend").checked,
           starting_cash: c0,
           shorting: $("cbShorting") && $("cbShorting").checked,
           max_leverage: +($("maxLeverage") && $("maxLeverage").value != null ? $("maxLeverage").value : 1.0),
@@ -2260,6 +2310,7 @@
       bindDetailsOverlaySummary($("trendPanel"), "trend");
       bindDetailsOverlaySummary($("startingCashPanel"), "starting");
       bindDetailsOverlaySummary($("marginShortsPanel"), "margin");
+      bindDetailsOverlaySummary($("miscPanel"), "misc");
       bindDetailsOverlaySummary($("presetSessionPanel"), "preset");
       if ($("newsLine")) $("newsLine").addEventListener("click", () => openInfoPanel("news"));
       if ($("microLine")) $("microLine").addEventListener("click", () => openInfoPanel("micro"));
@@ -2326,7 +2377,7 @@
     if ($("chartTabStats")) $("chartTabStats").onclick = function () { onChartTab("stats"); };
     if ($("bFlattenAll")) $("bFlattenAll").onclick = () => doFlatten(null).catch((e) => showMsg(String(e), false));
     if ($("ticker")) $("ticker").addEventListener("change", () => { stickyTicker = $("ticker").value; savePrefs(); if (lastState) paintState(lastState); });
-    ["watchKindStock","watchKindFund","watchKindCrypto","watchHeldOnly","watchFavFirst","tableDensity","cbConfirmLarge","confirmNotional","resetMode","chartDefaultMode"].forEach((id) => {
+    ["watchKindStock","watchKindFund","watchKindCrypto","watchHeldOnly","watchFavFirst","tableDensity","cbConfirmLarge","confirmNotional","resetMode","chartDefaultMode","cbGreatDep","cbChaosFlashCrash","cbChaosMemeSqueeze","cbChaosFatFinger","cbChaosExchangeHalt","cbChaosRumorMill","cbChaosSectorRotation","cbChaosFundingPanic","cbChaosLiquidityDrought","cbChaosWhaleRebalance","cbChaosCryptoWeekend"].forEach((id) => {
       const el = $(id);
       if (el) el.addEventListener("change", () => { savePrefs(); if (lastState && (id === "watchKindStock" || id === "watchKindFund" || id === "watchKindCrypto" || id === "watchHeldOnly" || id === "watchFavFirst" || id === "tableDensity")) paintState(lastState); });
     });
