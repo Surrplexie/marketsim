@@ -352,6 +352,31 @@
     .chart-ohlc-hud .hud-dn { color: #f0a0a8; }
     .chart-ohlc-hud .hud-row { margin: 0; }
     #chartContainer { width: 100%; height: min(52vh, 480px); min-height: 280px; }
+    #chartStats {
+      width: 100%;
+      height: min(52vh, 480px);
+      min-height: 280px;
+      overflow: auto;
+      padding: 0.8rem 0.95rem;
+      background: #0f141b;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 0.55rem 0.75rem;
+    }
+    .stats-item {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 0.6rem;
+      background: #121822;
+    }
+    .stats-item .k { color: var(--text-dim); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .stats-item .v { color: var(--text); font-size: 0.88rem; margin-top: 0.15rem; word-break: break-word; }
     #tbl tr.watchlist-row { cursor: pointer; }
     #tbl tr.watchlist-row:hover td { background: #141a22; }
     .port-row-click { cursor: pointer; }
@@ -1358,6 +1383,9 @@
       }
       if ($("chartContainer")) $("chartContainer").style.display = chartViewMode === "stats" ? "none" : "block";
       if ($("chartStats")) $("chartStats").style.display = chartViewMode === "stats" ? "block" : "none";
+      if (chartViewMode === "stats" && $("chartOhlcHud")) {
+        $("chartOhlcHud").hidden = true;
+      }
     }
     function updateChartMcapTabEnabled() {
       const m = $("chartTabMcap");
@@ -1507,16 +1535,23 @@
       const ins = lastState.instruments.find((x) => String(x.ticker) === String(chartOpenTk));
       if (!ins) { $("chartStats").textContent = "No stats."; return; }
       const q = ins.quote || {};
-      const out = [
-        "Ticker: " + ins.ticker + " (" + ins.kind + ")",
-        "Sector: " + (ins.sector || "—"),
-        "Mcap: " + fmtMcap(ins.marketcap),
-        "Supply: " + fmtQty(ins.units_outstanding),
-        "24h %: " + fmtPct24(ins.pct_24h),
-        "Volume: " + fmtVolSh(ins.cumulative_volume),
-        "Bid / Mid / Ask: " + fmt(q.bid, 4) + " / " + fmt(q.mid, 4) + " / " + fmt(q.ask, 4),
+      const items = [
+        ["Ticker", ins.ticker + " (" + ins.kind + ")"],
+        ["Sector", ins.sector || "—"],
+        ["Mcap", fmtMcap(ins.marketcap)],
+        ["Supply", fmtQty(ins.units_outstanding)],
+        ["24h %", fmtPct24(ins.pct_24h)],
+        ["Volume", fmtVolSh(ins.cumulative_volume)],
+        ["Bid", fmt(q.bid, 4)],
+        ["Mid", fmt(q.mid, 4)],
+        ["Ask", fmt(q.ask, 4)],
       ];
-      $("chartStats").innerHTML = out.map((x) => "<div>" + escHtml(x) + "</div>").join("");
+      $("chartStats").innerHTML =
+        '<div class="stats-grid">' +
+        items.map(([k, v]) =>
+          '<div class="stats-item"><div class="k">' + escHtml(k) + '</div><div class="v">' + escHtml(v) + "</div></div>"
+        ).join("") +
+        "</div>";
     }
     function onChartTab(mode) {
       if (mode === "mcap" && (!lastChartCandlesMcap || !lastChartCandlesMcap.length)) return;
