@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>marketsim</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --bg-panel: #12161c;
+      --bg-elev: #1a1f28;
+      --border: #2a3340;
+      --text: #e8ecf1;
+      --text-dim: #8b97a8;
+      --accent: #3ecf8e;
+      --accent-dim: #2a9d5f;
+      --danger: #f07178;
+      --warn: #e6c85c;
+      --buy: #3ecf8e;
+      --sell: #f07178;
+      --stock: #7eb8ff;
+      --fund: #c4a5ff;
+      --crypto: #f5a623;
+      --font: "DM Sans", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+    }
+    a { color: var(--accent); }
+
+    .app {
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      flex-shrink: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem 1.5rem;
+      padding: 0.6rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg) 100%);
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+    .brand h1 { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+    .brand span { color: var(--text-dim); font-size: 0.8rem; }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      font-size: 0.82rem;
+    }
+    .stat { display: flex; gap: 0.35rem; align-items: baseline; }
+    .stat label { color: var(--text-dim); }
+    .stat b { font-family: var(--mono); font-weight: 500; }
+
+    .main {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(240px, 300px) 1fr 280px;
+      grid-template-rows: minmax(0, 1fr);
+    }
+    .main > aside,
+    .main > section.col-main {
+      min-height: 0;
+      min-width: 0;
+    }
+    aside {
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    @media (max-width: 1024px) {
+      html, body {
+        overflow: auto;
+        height: auto;
+        min-height: 100%;
+      }
+      .app {
+        height: auto;
+        min-height: 100%;
+        overflow: visible;
+      }
+      .main {
+        flex: none;
+        min-height: 0;
+        overflow: visible;
+        grid-template-columns: 1fr;
+      }
+      aside {
+        overflow: visible;
+        max-height: none;
+        order: 2;
+      }
+      section.col-main { order: 1; }
+    }
+
+    aside, section.col-main {
+      border-right: 1px solid var(--border);
+    }
+    aside:last-of-type { border-right: 0; border-left: 1px solid var(--border); }
+
+    .panel {
+      padding: 0.9rem 1rem;
+    }
+    .panel h2 {
+      margin: 0 0 0.75rem 0;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+    }
+
+    .row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: flex-end; margin-bottom: 0.5rem; }
+    label.fld {
+      display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.7rem; color: var(--text-dim);
+    }
+    input, select {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.4rem 0.5rem;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+    input:focus, select:focus { outline: 2px solid var(--accent-dim); border-color: var(--accent); }
+    input[type=range].auto-tps {
+      width: 100%;
+      min-height: 1.1rem;
+      margin: 0.15rem 0 0.1rem 0;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+    input[type=range].auto-tps:disabled { opacity: 0.4; cursor: not-allowed; }
+    .auto-run-hint { font-size: 0.65rem; color: var(--text-dim); margin: 0.35rem 0 0; line-height: 1.35; }
+
+    button {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.45rem 0.7rem;
+      border-radius: 4px;
+      font-family: var(--font);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    button:hover { background: #232a35; border-color: #3d4a5c; }
+    button:active { transform: scale(0.98); }
+    button.primary { background: #1e3a2f; border-color: var(--accent-dim); color: var(--accent); }
+    button.primary:hover { background: #254a3c; }
+    button.danger { background: #3a2224; border-color: #5c3034; color: var(--danger); }
+
+    .btn-tick { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+    .order-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem 0.5rem;
+    }
+    .order-grid .span2 { grid-column: 1 / -1; }
+    .order-btn { width: 100%; font-weight: 600; }
+    .order-btn.buy { border-color: #2a6b4a; color: var(--buy); }
+    .order-btn.sell { border-color: #6b2a2f; color: var(--sell); }
+
+    .col-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .col-main > .panel:first-child {
+      flex-shrink: 0;
+    }
+    .table-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 0 0.5rem 0.5rem;
+      -webkit-overflow-scrolling: touch;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    thead th {
+      position: sticky; top: 0;
+      background: var(--bg);
+      z-index: 1;
+      text-align: right;
+      padding: 0.4rem 0.45rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+      font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.65rem;
+    }
+    th:first-child, th:nth-child(2) { text-align: left; }
+    th.th-sort {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    th.th-sort:hover { color: var(--text); }
+    th.th-sort .sort-ind { color: var(--text-dim); font-size: 0.6rem; margin-left: 0.2rem; }
+    th.th-sort.active { color: var(--accent); }
+    th.th-sort.active .sort-ind { color: var(--accent); }
+    td {
+      padding: 0.35rem 0.45rem;
+      border-bottom: 1px solid #1a1f25;
+      text-align: right;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+    td:nth-child(1), td:nth-child(2) { text-align: left; font-family: var(--font); }
+    tr:hover td { background: #0f1318; }
+    .k-stock { color: var(--stock); }
+    .k-fund { color: var(--fund); }
+    .k-crypto { color: var(--crypto); }
+    .pct-up { color: var(--buy); }
+    .pct-dn { color: var(--danger); }
+    .pct-flat { color: var(--text-dim); }
+
+    .port-panel { margin: 0; }
+    .port-panel > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.75rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      padding: 0 0 0.5rem 0;
+      user-select: none;
+    }
+    .port-panel > summary::-webkit-details-marker { display: none; }
+    .port-panel > summary::before {
+      content: "▶";
+      display: inline-block;
+      font-size: 0.5rem;
+      margin-right: 0.4rem;
+      transform: translateY(-0.05em);
+      transition: transform 0.12s;
+    }
+    .port-panel[open] > summary::before { transform: rotate(90deg); }
+    .order-log-wrap {
+      max-height: 11rem;
+      overflow: auto;
+      font-size: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin: 0.4rem 0 0;
+    }
+    .order-log-wrap th, .order-log-wrap td { padding: 0.15rem 0.35rem; }
+    .order-log-wrap th { position: sticky; top: 0; background: var(--panel-2, var(--bg)); }
+    .port-sum-sub {
+      font-size: 0.72rem; text-transform: none; letter-spacing: 0;
+      font-family: var(--mono); color: var(--text); font-weight: 500;
+    }
+    .port-holdings-wrap { overflow-x: auto; max-width: 100%; margin-top: 0.15rem; }
+    table.port-holdings th:first-child, table.port-holdings td:first-child { text-align: left; }
+    .port-holdings .side-buy { color: var(--buy); }
+    .port-holdings .side-sell { color: var(--sell); }
+    .port-holdings td.last-fill { font-size: 0.65rem; line-height: 1.3; text-align: left; max-width: 10rem; white-space: normal; }
+    .port-empty { color: var(--text-dim); font-size: 0.85rem; }
+
+    #msg {
+      min-height: 1.2rem; font-size: 0.8rem; margin: 0.25rem 0 0 0; font-family: var(--mono);
+    }
+    #msg.ok { color: var(--accent); }
+    #msg.err { color: var(--danger); }
+    .meta-line { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; }
+
+    details.debug { margin-top: 0.5rem; color: var(--text-dim); }
+    details.debug pre {
+      max-height: 12rem; overflow: auto; font-size: 0.65rem; background: #080a0c; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border);
+    }
+
+    /* No full-screen dim: side asides + watchlist keep normal background; only the dialog is opaque. */
+    .chart-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 2000;
+      background: transparent; align-items: center; justify-content: center; padding: 1rem;
+      pointer-events: none;
+    }
+    .chart-backdrop.is-open { display: flex; }
+    .chart-dialog {
+      pointer-events: auto;
+      background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+      width: min(920px, 100%); max-height: 95vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+    }
+    .chart-dlg-hdr {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--border);
+    }
+    .chart-dlg-hdr h3 { margin: 0; font-size: 1.05rem; }
+    .chart-close {
+      background: transparent; border: 0; color: var(--text-dim); font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0.2rem 0.4rem;
+    }
+    .chart-close:hover { color: var(--text); }
+    .chart-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.45rem 0.85rem; font-size: 0.75rem; color: var(--text-dim); }
+    .chart-opts label { display: flex; align-items: center; gap: 0.3rem; }
+    .chart-tabs { display: flex; gap: 0.25rem; margin-right: 0.5rem; }
+    .chart-tab {
+      background: var(--bg-elev); border: 1px solid var(--border); color: var(--text-dim);
+      font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;
+    }
+    .chart-tab:hover { color: var(--text); border-color: #3d4a5c; }
+    .chart-tab.active { color: var(--accent); border-color: var(--accent-dim); background: #1a2520; }
+    .chart-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+    .chart-canvas-wrap { position: relative; width: 100%; }
+    .chart-ohlc-hud {
+      position: absolute; top: 0.4rem; left: 0.4rem; z-index: 5; pointer-events: none;
+      font-family: var(--mono); font-size: 0.62rem; line-height: 1.35; color: #c8d0d8;
+      background: rgba(8, 10, 14, 0.82); border: 1px solid var(--border); border-radius: 4px;
+      padding: 0.4rem 0.5rem; max-width: 14rem; box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    }
+    .chart-ohlc-hud .hud-k { color: var(--text-dim); margin-right: 0.15rem; }
+    .chart-ohlc-hud .hud-up { color: #6ee7a8; }
+    .chart-ohlc-hud .hud-dn { color: #f0a0a8; }
+    .chart-ohlc-hud .hud-row { margin: 0; }
+    #chartContainer { width: 100%; height: min(52vh, 480px); min-height: 280px; }
+    #tbl tr.watchlist-row { cursor: pointer; }
+    #tbl tr.watchlist-row:hover td { background: #141a22; }
+    .port-row-click { cursor: pointer; }
+    .port-row-click:hover { background: #0f1318; }
+  </style>
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <h1>marketsim</h1>
+        <span>Order book + GBM · in-memory</span>
+      </div>
+      <div class="stats" id="hdr-stats">
+        <div class="stat"><label>Mode</label><b id="mode">—</b></div>
+        <div class="stat"><label>Tick</label><b id="tick">0</b></div>
+        <div class="stat"><label>Sim step</label><b id="mpt">—</b></div>
+        <div class="stat"><label>Equity</label><b id="eq" style="color:var(--accent)">0</b></div>
+        <div class="stat"><label>Cash</label><b id="cash">0</b></div>
+        <div class="stat"><label>Fees paid</label><b id="fees">0</b></div>
+        <div class="stat"><label>Locked</label><b id="lca">0</b></div>
+      </div>
+    </header>
+
+    <div class="main">
+      <aside>
+        <div class="panel">
+          <h2>Time</h2>
+          <div class="row btn-tick">
+            <button type="button" class="primary" id="bt">+1 tick</button>
+            <button type="button" id="b5">+5</button>
+            <button type="button" id="b50">+50</button>
+          </div>
+          <div class="row">
+            <label class="fld">Interval
+              <input id="iunit" value="day" placeholder="day" style="min-width:5rem" />
+            </label>
+            <label class="fld">×
+              <input id="inum" type="number" value="1" min="0" style="width:3.5rem" />
+            </label>
+            <button type="button" class="primary" id="bRunTime" title="Advance by sim time">Run</button>
+          </div>
+          <div class="row" style="align-items:stretch; margin-bottom:0.35rem">
+            <label class="fld" style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.15rem">
+                <span>Auto <input type="checkbox" id="autoRun" style="width:auto;vertical-align:middle;margin:0" title="Run sim in background" /></span>
+                <span id="autoRateVal" style="font-family:var(--mono);font-size:0.8rem;color:var(--accent)">1 tick/s</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.35rem">
+                <span style="font-size:0.6rem;color:var(--text-dim);min-width:0.6rem" title="1 sim tick / sec">1</span>
+                <input type="range" id="autoRate" class="auto-tps" min="1" max="50" value="1" title="Sim ticks per second" />
+                <span style="font-size:0.6rem;color:var(--text-dim);min-width:1.1rem;text-align:right" title="50 sim ticks / sec">50</span>
+              </div>
+              <p class="auto-run-hint">Stays on while you trade. Left: 1 tick/s — right: 50 ticks/s.</p>
+            </label>
+          </div>
+          <h2>Trend override</h2>
+          <p class="auto-run-hint" style="margin:0 0 0.35rem 0">Biases sim GBM drift per tick. −10: down + choppy, +10: up. 0 = neutral.</p>
+          <div class="row" style="align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.4rem">
+            <span style="font-size:0.6rem; color:var(--text-dim)">−10</span>
+            <input type="range" id="trendSlider" class="auto-tps" min="-10" max="10" value="0" style="flex:1; min-width:6rem" title="Override drift" />
+            <span style="font-size:0.6rem; color:var(--text-dim)">+10</span>
+            <b id="trendVal" style="font-family:var(--mono); min-width:2rem; color:var(--accent)">0</b>
+          </div>
+          <label class="fld" style="font-size:0.75rem; margin-bottom:0.25rem">Scope
+            <select id="trendScope" title="Which names receive the override">
+              <option value="all">All</option>
+              <option value="equity">Stocks + funds (listed)</option>
+              <option value="stocks">Stocks only</option>
+              <option value="funds">Funds only</option>
+              <option value="crypto">Crypto only</option>
+              <option value="custom">Custom (multi)…</option>
+            </select>
+          </label>
+          <div id="trendCustomWrap" style="display:none; margin:0.25rem 0 0.35rem 0">
+            <label class="fld" style="font-size:0.7rem">Symbols (Ctrl/Cmd+click, Shift+click)
+              <select id="trendCustomTickers" multiple size="5" class="trend-msel" style="min-height:5.5rem; width:100%"></select>
+            </label>
+          </div>
+          <button type="button" class="primary" id="bTrendApply" style="width:100%; margin-top:0.15rem">Apply scope / selection</button>
+          <h2 style="margin-top:0.9rem">Volatility regime</h2>
+          <p class="auto-run-hint" style="margin:0 0 0.35rem 0">0 = off. +10: stronger stock/fund long-run growth &amp; ~10× **vol** (σ) on stocks, funds, and crypto. −10: near-plateau growth &amp; very quiet markets. Global (all names).</p>
+          <div class="row" style="align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.1rem">
+            <span style="font-size:0.6rem; color:var(--text-dim)">−10</span>
+            <input type="range" id="volSlider" class="auto-tps" min="-10" max="10" value="0" style="flex:1; min-width:6rem" title="Override volatility regime" />
+            <span style="font-size:0.6rem; color:var(--text-dim)">+10</span>
+            <b id="volVal" style="font-family:var(--mono); min-width:2rem; color:var(--accent)">0</b>
+          </div>
+          <p id="volMeta" class="auto-run-hint" style="margin:0; min-height:1.1em; font-size:0.65rem"></p>
+          <h2>Session</h2>
+          <label class="fld" style="margin-bottom:0.35rem">Starting cash (USD)
+            <input id="startingCash" type="number" min="0.0001" max="100000000" step="any" value="25000000" inputmode="decimal" title="$0.0001 – $100,000,000. Apply at tick 0 before stepping time, or set before New game." style="width:100%; max-width:14rem" />
+          </label>
+          <div class="row" style="margin-bottom:0.45rem">
+            <button type="button" class="primary" id="bApplyStartingCash" title="Set cash now (tick 0, flat book only)">Apply cash</button>
+          </div>
+          <p class="auto-run-hint" style="margin:0 0 0.5rem 0"><b>New game</b> also applies this value. <b>Apply cash</b> only at tick 0 with no positions or locks.</p>
+          <div class="row">
+            <label class="fld">Preset
+              <select id="resetMode">
+                <option value="simple">simple</option>
+                <option value="easy">easy</option>
+                <option value="hard">hard</option>
+                <option value="complex">complex</option>
+                <option value="free">free</option>
+              </select>
+            </label>
+            <button type="button" class="danger" id="bReset">New game</button>
+          </div>
+          <p id="greatDepressStatus" class="auto-run-hint" style="margin:0.35rem 0 0.15rem 0;min-height:1em"></p>
+          <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer">
+            <input type="checkbox" id="cbGreatDep" style="margin-top:0.2rem" />
+            <span>Great Depression: one crash in 500–1000 ticks, then <span style="color:var(--text-dim)">most names</span> toward 99% of pre-crash. Option ends after the crash. ~1% of issues stay bad.</span>
+          </label>
+        </div>
+      </aside>
+
+      <section class="col-main">
+        <div class="panel" style="padding-bottom:0">
+          <h2 style="margin-bottom:0.4rem">Watchlist</h2>
+          <p class="meta-line" style="margin:0 0 0.45rem 0">Click a symbol row (or a position) to open the live candlestick chart.</p>
+        </div>
+        <div class="table-wrap">
+          <table id="watchTable">
+            <thead>
+              <tr>
+                <th>Kind</th>
+                <th class="th-sort" data-sort-key="ticker" title="Sort: high→low, click again to reverse">Symbol<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="sector" title="Sector / basket tag">Sec<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="marketcap" title="Sort by market cap">Mcap<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="bid" title="Sort by bid">Bid<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="mid" title="Sort by mid">Mid<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="ask" title="Sort by ask">Ask<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="p24" title="Sort by 24h %">24h<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="tape" title="Order-flow velocity (testing)">Tape<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="wick" title="Upper wick share of last bar (testing)">Wick<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="vol" title="Session volume: prints + turnover tied to vol/return/tape + float flow">Vol<span class="sort-ind"></span></th>
+                <th class="th-sort" data-sort-key="askliq" title="Total resting ask size (max taker buy without new limits)">Ask sz<span class="sort-ind"></span></th>
+                <th>Top book</th>
+              </tr>
+            </thead>
+            <tbody id="tbl"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside>
+        <div class="panel">
+          <h2>Order ticket</h2>
+          <div class="row" style="margin-bottom:0.35rem">
+            <label class="fld span2" style="flex:1;min-width:8rem">Symbol
+              <select id="ticker"></select>
+            </label>
+            <label class="fld" style="width:5.2rem">
+              <span id="amtLabel" style="display:block">Size (sh)</span>
+              <input id="size" type="number" value="10" min="0" step="any" inputmode="decimal" title="Shares or cash for buys" />
+            </label>
+            <label class="fld" style="min-width:6rem">Limit px
+              <input id="lprice" type="number" value="" min="0" step="0.0001" />
+            </label>
+          </div>
+          <div class="row" id="buySizingRow" style="font-size:0.72rem; color: var(--text-dim); margin-bottom:0.5rem; align-items:center; gap:0.65rem; flex-wrap:wrap">
+            <span style="color:var(--text-dim)">Buy sizing</span>
+            <label class="fld" style="flex-direction:row; align-items:center; gap:0.3rem; margin:0">
+              <input type="radio" name="buySizing" value="sh" id="sizingSh" checked />
+              <span>Shares</span>
+            </label>
+            <label class="fld" style="flex-direction:row; align-items:center; gap:0.3rem; margin:0">
+              <input type="radio" name="buySizing" value="cash" id="sizingCash" />
+              <span>Cash (USD)</span>
+            </label>
+            <label class="fld" style="flex-direction:row; align-items:center; gap:0.3rem; margin:0">
+              <input type="checkbox" id="allCash" />
+              <span>All free cash</span>
+            </label>
+          </div>
+          <div class="order-grid">
+            <button class="order-btn buy" type="button" id="bBuy">Market buy</button>
+            <button class="order-btn sell" type="button" id="bSell">Market sell</button>
+            <button class="order-btn buy span2" type="button" id="bLb" style="opacity:0.95">Limit buy</button>
+            <button class="order-btn sell span2" type="button" id="bLs" style="opacity:0.95">Limit sell</button>
+          </div>
+          <details class="order-log-panel" id="orderLogPanel" open style="margin:0.55rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
+            <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Order history &amp; audit</summary>
+            <p class="meta-line" style="margin:0.35rem 0 0.25rem; font-size:0.68rem">Fills, fees, rejects, splits, cash dividends, and buybacks (newest first).</p>
+            <div class="order-log-wrap">
+              <table style="width:100%; border-collapse:collapse">
+                <thead>
+                  <tr>
+                    <th>Tick</th>
+                    <th>Event</th>
+                    <th>Sym</th>
+                    <th>Ord</th>
+                    <th>Side</th>
+                    <th style="text-align:left">Details</th>
+                  </tr>
+                </thead>
+                <tbody id="orderLogBody"></tbody>
+              </table>
+            </div>
+          </details>
+          <details class="split-panel" style="margin:0.65rem 0 0; padding-top:0.5rem; border-top:1px solid var(--border)">
+            <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Manual stock split</summary>
+            <p class="meta-line" style="margin:0.4rem 0 0.35rem; font-size:0.72rem">Uses the symbol selected in the ticket. Forward N:1 only (price ÷N, float shares ×N). Stocks only — not funds or crypto.</p>
+            <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.2rem">
+              <button type="button" id="bSp2" title="2:1 forward">2:1</button>
+              <button type="button" id="bSp3" title="3:1 forward">3:1</button>
+              <label class="fld" style="margin:0; min-width:4.8rem"><span style="font-size:0.65rem">N (2–100)</span>
+                <input id="splitN" type="number" min="2" max="100" value="2" step="1" style="width:4.2rem" title="Forward split N:1" />
+              </label>
+              <button type="button" class="primary" id="bSplitGo">Apply split</button>
+            </div>
+          </details>
+          <details class="corp-panel" style="margin:0.65rem 0 0; padding-top:0.5rem; border-top:1px solid var(--border)">
+            <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Dividend &amp; buyback (stocks)</summary>
+            <p class="meta-line" style="margin:0.4rem 0 0.35rem; font-size:0.72rem"><b>Dividend</b> — ex-div: cash/sh to holders, spot &amp; CLOB price levels fall by the same. <b>Buyback</b> — float &amp; your shares scale down; mid unchanged, USD cost basis unchanged.</p>
+            <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.2rem">
+              <label class="fld" style="margin:0; min-width:5.5rem"><span style="font-size:0.65rem">USD / sh</span>
+                <input id="divUsd" type="number" min="0" step="0.0001" value="0.5" style="width:5rem" title="Cash dividend per share" />
+              </label>
+              <button type="button" class="primary" id="bDivGo" title="Pay cash dividend (stock in ticket)">Pay dividend</button>
+            </div>
+            <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin:0.45rem 0 0.1rem 0">
+              <label class="fld" style="margin:0; min-width:5.2rem"><span style="font-size:0.65rem">% float retired</span>
+                <input id="bbPct" type="number" min="0.05" max="20" value="1" step="0.05" style="width:4.5rem" title="Percent of total shares repurchased (0.05%–20%)" />
+              </label>
+              <button type="button" id="bBbGo" title="Share buyback (stock in ticket)">Run buyback</button>
+            </div>
+          </details>
+          <p id="msg" class="ok"></p>
+          <p class="meta-line" id="metaLine"></p>
+          <p class="meta-line" id="microLine" style="font-size:0.68rem; line-height:1.35; color:var(--text-dim)"></p>
+          <p class="meta-line" id="newsLine" style="font-size:0.68rem; line-height:1.35; color:var(--warn)"></p>
+          <details class="debug">
+            <summary>API JSON</summary>
+            <pre id="raw">{}</pre>
+          </details>
+        </div>
+        <div class="panel" style="border-top:1px solid var(--border)">
+          <details class="port-panel" id="portPanel" open>
+            <summary>
+              <span>Positions</span>
+              <span class="port-sum-sub" id="portSummarySub"></span>
+            </summary>
+            <div class="port-holdings-wrap" id="portHoldingsInner"></div>
+          </details>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <div id="chartModal" class="chart-backdrop" aria-hidden="true">
+    <div class="chart-dialog" role="dialog" aria-labelledby="chartTitle" aria-modal="true">
+      <div class="chart-dlg-hdr">
+        <h3 id="chartTitle">Chart</h3>
+        <button type="button" class="chart-close" id="chartClose" title="Close" aria-label="Close">&times;</button>
+      </div>
+      <div class="chart-opts">
+        <div class="chart-tabs" role="tablist" aria-label="Chart series">
+          <button type="button" class="chart-tab active" id="chartTabPrice" data-mode="price" role="tab" aria-selected="true">Price</button>
+          <button type="button" class="chart-tab" id="chartTabMcap" data-mode="mcap" role="tab" aria-selected="false">Mcap</button>
+        </div>
+        <label>Tick / candle <input id="chartBucket" type="number" min="1" max="80" value="4" style="width:3.2rem" title="How many sim ticks to aggregate per candle" /></label>
+        <span id="chartMeta" style="font-family:var(--mono)"></span>
+      </div>
+      <div class="chart-canvas-wrap" id="chartCanvasWrap">
+        <div id="chartOhlcHud" class="chart-ohlc-hud" aria-live="polite" hidden>—</div>
+        <div id="chartContainer"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const fmt = (x, d) => (typeof x === "number" && !isNaN(x) ? x.toFixed(d) : "—");
+    function fmtQty(x) {
+      if (x == null || !isFinite(x)) return "—";
+      const s = x.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
+      return s || "0";
+    }
+    function fmtMcap(n) {
+      if (n == null) return "—";
+      const x = +n, ax = Math.abs(x);
+      if (ax >= 1e12) return (x/1e12).toFixed(2) + "T";
+      if (ax >= 1e9) return (x/1e9).toFixed(2) + "B";
+      if (ax >= 1e6) return (x/1e6).toFixed(1) + "M";
+      if (ax >= 1e3) return (x/1e3).toFixed(0) + "k";
+      return x.toFixed(0);
+    }
+    /** Short lowercase suffixes for chart axis / mcap OHLC (e.g. 800.2b, 40k). */
+    function fmtMcapShort(n) {
+      if (n == null || !isFinite(n)) return "\u2014";
+      const x = +n;
+      const sign = x < 0 ? "-" : "";
+      const ax = Math.abs(x);
+      if (ax >= 1e12) return sign + (ax/1e12).toFixed(2) + "t";
+      if (ax >= 1e9) return sign + (ax/1e9).toFixed(2) + "b";
+      if (ax >= 1e6) return sign + (ax/1e6).toFixed(1) + "m";
+      if (ax >= 1e3) return sign + (ax/1e3).toFixed(0) + "k";
+      return sign + ax.toFixed(0);
+    }
+    function escHtml(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+    function kindClass(k) {
+      if (k === "stock") return "k-stock";
+      if (k === "fund") return "k-fund";
+      if (k === "crypto") return "k-crypto";
+      return "";
+    }
+    function pct24Class(v) {
+      if (v == null || !isFinite(v)) return "pct-flat";
+      if (v > 0) return "pct-up";
+      if (v < 0) return "pct-dn";
+      return "pct-flat";
+    }
+    function fmtPct24(v) {
+      if (v == null || !isFinite(v)) return "—";
+      const s = v >= 0 ? "+" : "";
+      return s + v.toFixed(2) + "%";
+    }
+    function renderPortHoldings(s) {
+      const p = s.player;
+      const inner = $("portHoldingsInner");
+      const sub = $("portSummarySub");
+      if (!inner) return;
+      const h = (p && p.holdings) ? p.holdings : [];
+      const totUn = p && p.holdings_unrealized_usd != null ? p.holdings_unrealized_usd : 0;
+      if (sub) {
+        if (!h.length) {
+          sub.textContent = "";
+        } else {
+          const sgn = totUn >= 0 ? "+" : "";
+          sub.textContent = h.length + " name" + (h.length === 1 ? "" : "s") + "  ·  unreal " + sgn + totUn.toFixed(2);
+        }
+      }
+      if (!h.length) {
+        inner.innerHTML = '<p class="port-empty" style="margin:0.25rem 0 0 0">No open positions</p>';
+        return;
+      }
+      const byT = new Map(s.instruments.map((x) => [x.ticker, x]));
+      let html = '<table class="port-holdings"><thead><tr><th>Sym</th><th>Qty</th><th>Avg $</th><th>Mark</th><th>Cost $</th><th>MV $</th><th>Unreal $</th><th>Unreal %</th><th>Last fill</th></tr></thead><tbody>';
+      h.forEach((r) => {
+        const pct = r.unrealized_pct != null && isFinite(+r.unrealized_pct)
+          ? ((+r.unrealized_pct) >= 0 ? "+" : "") + (+r.unrealized_pct).toFixed(2) + "%" : "—";
+        const unreal = isFinite(+r.unrealized_usd) ? ((+r.unrealized_usd) >= 0 ? "+" : "") + (+r.unrealized_usd).toFixed(2) : "—";
+        const ucls = (r.unrealized_usd != null && isFinite(+r.unrealized_usd))
+          ? ((+r.unrealized_usd) >= 0 ? "pct-up" : "pct-dn")
+          : "pct-flat";
+        const side = r.last_side || "";
+        const sideClass = side === "buy" ? "side-buy" : (side === "sell" ? "side-sell" : "");
+        const lp = r.last_price != null ? fmt(r.last_price, 4) : "—";
+        const lq = r.last_qty != null ? fmtQty(r.last_qty) : "—";
+        const lt = r.last_tick != null && r.last_tick >= 0 ? String(r.last_tick) : "—";
+        let lastCol = "—";
+        if (side && (r.last_price != null || r.last_tick != null)) {
+          const st = sideClass ? '<span class="' + sideClass + '">' + side + "</span>" : side;
+          lastCol = st + " @ " + lp + " ×" + lq + " · tick " + lt;
+        }
+        const ins = byT.get(r.ticker);
+        const symCls = ins ? kindClass(ins.kind) : "";
+        html += '<tr class="port-row-click" data-ticker="' + r.ticker + '" title="Open chart">' +
+          '<td class="' + symCls + '"><b>' + r.ticker + "</b></td>" +
+          "<td>" + fmtQty(r.qty) + "</td>" +
+          "<td>" + fmt(r.avg_cost, 4) + "</td>" +
+          "<td>" + fmt(r.mark, 4) + "</td>" +
+          "<td>" + (r.cost_basis_usd != null ? (+r.cost_basis_usd).toFixed(2) : "—") + "</td>" +
+          "<td>" + (r.market_value_usd != null ? (+r.market_value_usd).toFixed(2) : "—") + "</td>" +
+          '<td class="' + ucls + '">' + unreal + "</td>" +
+          "<td>" + pct + "</td>" +
+          '<td class="last-fill">' + lastCol + "</td></tr>";
+      });
+      html += "</tbody></table>";
+      inner.innerHTML = html;
+    }
+    async function j(url, opts) {
+      const o = Object.assign({ headers: { "Content-Type": "application/json" } }, opts || {});
+      const r = await fetch(url, o);
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+    function showMsg(t, isOk) {
+      const m = $("msg");
+      m.textContent = t || "";
+      m.className = isOk ? "ok" : "err";
+    }
+    async function postStockSplit(ratio) {
+      const t = $("ticker").value.trim().toUpperCase();
+      if (!t) {
+        showMsg("Select a stock symbol in the order ticket", false);
+        return;
+      }
+      const n = Math.round(Number(ratio));
+      if (!isFinite(n) || n < 2 || n > 100) {
+        showMsg("Ratio N must be 2–100 (N:1 forward split)", false);
+        return;
+      }
+      try {
+        const st = await j("/api/stock_split", { method: "POST", body: JSON.stringify({ ticker: t, ratio: n }) });
+        lastState = st;
+        paintState(st);
+        showMsg("Applied " + n + ":1 split on " + t, true);
+        refreshOpenChart();
+      } catch (e) {
+        showMsg(String(e), false);
+      }
+    }
+    async function postStockDividend() {
+      const t = $("ticker").value.trim().toUpperCase();
+      if (!t) {
+        showMsg("Select a stock symbol in the order ticket", false);
+        return;
+      }
+      const u = +($("divUsd") && $("divUsd").value != null ? $("divUsd").value : 0.5);
+      if (!isFinite(u) || u < 1e-9) {
+        showMsg("Set USD per share (positive)", false);
+        return;
+      }
+      try {
+        const st = await j("/api/stock_dividend", { method: "POST", body: JSON.stringify({ ticker: t, usd_per_share: u }) });
+        lastState = st;
+        paintState(st);
+        const ap = st.dividend_applied;
+        const msg = ap && ap.cash_received != null
+          ? "Dividend $" + (+ap.usd_per_share).toFixed(4) + "/sh  ·  you +" + (+ap.cash_received).toFixed(2) + " cash on " + t
+          : "Dividend applied on " + t;
+        showMsg(msg, true);
+        refreshOpenChart();
+      } catch (e) {
+        showMsg(String(e), false);
+      }
+    }
+    async function postStockBuyback() {
+      const t = $("ticker").value.trim().toUpperCase();
+      if (!t) {
+        showMsg("Select a stock symbol in the order ticket", false);
+        return;
+      }
+      const p = +($("bbPct") && $("bbPct").value != null ? $("bbPct").value : 1);
+      if (!isFinite(p) || p < 0.05 || p > 20) {
+        showMsg("% float retired must be 0.05%–20%", false);
+        return;
+      }
+      const frac = p / 100.0;
+      try {
+        const st = await j("/api/stock_buyback", { method: "POST", body: JSON.stringify({ ticker: t, float_fraction: frac }) });
+        lastState = st;
+        paintState(st);
+        const ap = st.buyback_applied;
+        const msg = ap
+          ? "Buyback " + p.toFixed(2) + "% of float on " + t + "  ·  " + (+ap.units_outstanding).toFixed(0) + " sh out"
+          : "Buyback applied on " + t;
+        showMsg(msg, true);
+        refreshOpenChart();
+      } catch (e) {
+        showMsg(String(e), false);
+      }
+    }
+    let lastState = null;
+    let _trendInstrKey = "";
+    let _trendPostTimer = null;
+    let _volPostTimer = null;
+    function fillTrendCustomFromState(s) {
+      if (!s || !s.instruments) return;
+      const key = s.instruments.map((x) => x.ticker + x.kind).join("|");
+      const sel = $("trendCustomTickers");
+      if (!sel) return;
+      if (key !== _trendInstrKey) {
+        _trendInstrKey = key;
+        sel.innerHTML = "";
+        s.instruments.forEach((x) => {
+          const o = document.createElement("option");
+          o.value = x.ticker;
+          o.textContent = x.ticker + "  (" + x.kind + ")";
+          sel.appendChild(o);
+        });
+      }
+      const want = s.trend_override && s.trend_override.custom_tickers
+        ? new Set(s.trend_override.custom_tickers)
+        : new Set();
+      Array.from(sel.options).forEach((o) => { o.selected = want.has(o.value); });
+    }
+    async function postTrend(quiet) {
+      const sc = $("trendScope") ? $("trendScope").value : "all";
+      const v = $("trendSlider") ? +$("trendSlider").value : 0;
+      const tks = [];
+      if (sc === "custom" && $("trendCustomTickers")) {
+        Array.from($("trendCustomTickers").selectedOptions).forEach((o) => tks.push(o.value));
+      }
+      const st = await j("/api/trend-override", { method: "POST", body: JSON.stringify({ value: v, scope: sc, tickers: tks }) });
+      lastState = st;
+      paintState(st);
+      if (!quiet) showMsg("Trend updated", true);
+    }
+    function scheduleTrendPost() {
+      if ($("trendVal") && $("trendSlider")) { $("trendVal").textContent = $("trendSlider").value; }
+      if (_trendPostTimer) clearTimeout(_trendPostTimer);
+      _trendPostTimer = setTimeout(function () {
+        postTrend(true).catch((e) => showMsg(String(e), false));
+      }, 200);
+    }
+    async function postVol(quiet) {
+      const v = $("volSlider") ? +$("volSlider").value : 0;
+      const st = await j("/api/volatility-override", { method: "POST", body: JSON.stringify({ value: v }) });
+      lastState = st;
+      paintState(st);
+      if (!quiet) showMsg("Volatility regime updated", true);
+    }
+    function scheduleVolPost() {
+      if ($("volVal") && $("volSlider")) { $("volVal").textContent = $("volSlider").value; }
+      if (_volPostTimer) clearTimeout(_volPostTimer);
+      _volPostTimer = setTimeout(function () {
+        postVol(true).catch((e) => showMsg(String(e), false));
+      }, 200);
+    }
+    let sortKey = null;
+    let sortDir = -1;
+    function fmtVolSh(v) {
+      if (v == null || !isFinite(+v)) return "\u2014";
+      var x = +v;
+      if (x >= 1e9) return (x / 1e9).toFixed(2) + "B";
+      if (x >= 1e6) return (x / 1e6).toFixed(2) + "M";
+      if (x >= 1e3) return (x / 1e3).toFixed(1) + "K";
+      return String(Math.round(x));
+    }
+    function sectorAbbr(sec) {
+      var s = String(sec || "");
+      if (!s) return "\u2014";
+      if (s === "ew_top16_stocks") return "EW×16";
+      if (s === "ew_top25_stocks") return "EW×25";
+      if (s === "ew_top3_crypto") return "EW×c3";
+      if (s.indexOf("ew_s10_") === 0) return "S10:" + s.slice(7);
+      return s.length > 7 ? s.slice(0, 7) : s;
+    }
+    function getSortableVal(x, k) {
+      switch (k) {
+        case "ticker": return (x.ticker || "").toUpperCase();
+        case "sector": return sectorAbbr(x.sector);
+        case "marketcap": return x.marketcap;
+        case "bid": return x.quote && x.quote.bid;
+        case "mid": return x.quote && x.quote.mid;
+        case "ask": return x.quote && x.quote.ask;
+        case "p24": return x.pct_24h;
+        case "tape": return x.micro && x.micro.tape;
+        case "wick": return x.micro && x.micro.wick && x.micro.wick.upper;
+        case "vol": return x.cumulative_volume;
+        case "askliq": return x.ask_liquidity;
+        default: return null;
+      }
+    }
+    function sortInstruments(arr) {
+      if (!sortKey) return arr.slice();
+      return arr.slice().sort((a, b) => {
+        const ka = getSortableVal(a, sortKey);
+        const kb = getSortableVal(b, sortKey);
+        if (sortKey === "ticker" || sortKey === "sector") {
+          return String(ka).localeCompare(String(kb), undefined, { sensitivity: "base" }) * sortDir;
+        }
+        const na = ka == null || !isFinite(+ka);
+        const nb = kb == null || !isFinite(+kb);
+        if (na && nb) return 0;
+        if (na) return 1;
+        if (nb) return -1;
+        return (+ka - +kb) * sortDir;
+      });
+    }
+    function updateSortHeaderUI() {
+      const head = document.querySelector("#watchTable thead");
+      if (!head) return;
+      head.querySelectorAll("th.th-sort").forEach((th) => {
+        th.classList.remove("active");
+        const ind = th.querySelector(".sort-ind");
+        if (ind) ind.textContent = "";
+        const k = th.getAttribute("data-sort-key");
+        if (sortKey && k === sortKey) {
+          th.classList.add("active");
+          if (ind) ind.textContent = sortDir === -1 ? " \u25BC" : " \u25B2";
+        }
+      });
+    }
+    function renderWatchTable(s) {
+      const tb = $("tbl");
+      tb.innerHTML = "";
+      sortInstruments(s.instruments).forEach((x) => {
+        const tr = document.createElement("tr");
+        tr.setAttribute("data-ticker", x.ticker);
+        tr.className = "watchlist-row";
+        tr.title = "Open candlestick chart";
+        const mcv = fmtMcap(x.marketcap);
+        const bb = x.book && x.book.bids && x.book.bids[0] ? x.book.bids[0] : [null, null];
+        const ba = x.book && x.book.asks && x.book.asks[0] ? x.book.asks[0] : [null, null];
+        const btxt = (bb[0] != null) ? fmt(bb[0], 4) + "×" + bb[1] : "—";
+        const atxt = (ba[0] != null) ? fmt(ba[0], 4) + "×" + ba[1] : "—";
+        const p24 = x.pct_24h;
+        const mc = x.micro || {};
+        const tps = (mc.tape != null && isFinite(+mc.tape)) ? String(+mc.tape).slice(0, 10) : "—";
+        const wk = (mc.wick && isFinite(+mc.wick.upper)) ? (+mc.wick.upper).toFixed(2) : "—";
+        const ssec = sectorAbbr(x.sector);
+        const vols = fmtVolSh(x.cumulative_volume);
+        const askL = fmtVolSh(x.ask_liquidity);
+        tr.innerHTML =
+          '<td class="' + kindClass(x.kind) + '">' + x.kind + "</td>" +
+          "<td><b>" + x.ticker + "</b></td>" +
+          '<td style="font-size:0.72rem" title="' + escHtml(String(x.sector || "")) + '">' + escHtml(ssec) + "</td>" +
+          '<td class="' + kindClass(x.kind) + '">' + mcv + "</td>" +
+          "<td>" + fmt(x.quote.bid, 4) + "</td>" +
+          "<td><b>" + fmt(x.quote.mid, 4) + "</b></td>" +
+          "<td>" + fmt(x.quote.ask, 4) + "</td>" +
+          '<td class="' + pct24Class(p24) + '">' + fmtPct24(p24) + "</td>" +
+          '<td style="font-size:0.7rem" title="Tape: rough order-flow / velocity">' + tps + "</td>" +
+          '<td style="font-size:0.7rem" title="Upper wick / range (last window)">' + wk + "</td>" +
+          '<td style="font-size:0.68rem" title="Prints + market turnover (σ, move, tape) + supply flow">' + vols + "</td>" +
+          '<td style="font-size:0.68rem" title="Resting asks — max size for a market buy">' + askL + "</td>" +
+          '<td style="text-align:left;font-size:0.75rem">' + btxt + "  ·  " + atxt + "</td>";
+        tb.appendChild(tr);
+      });
+      updateSortHeaderUI();
+    }
+    function renderOrderLog(s) {
+      const tb = $("orderLogBody");
+      if (!tb) return;
+      const rows = s.order_log;
+      if (!rows || !rows.length) {
+        tb.innerHTML = '<tr><td colspan="6" class="meta-line" style="padding:0.4rem 0.35rem">No activity yet.</td></tr>';
+        return;
+      }
+      const rev = rows.slice().reverse();
+      tb.innerHTML = rev.map((e) => {
+        const ev = e.event != null ? String(e.event) : "—";
+        const tk = e.ticker != null ? e.ticker : "—";
+        const isCorpNoOrd = (e.event === "dividend" || e.event === "buyback" || e.event === "split" || e.event === "liquidation");
+        const ot = isCorpNoOrd ? "\u2014" : (e.order_type != null ? e.order_type : "—");
+        const sd = isCorpNoOrd ? "\u2014" : (e.side != null ? e.side : "—");
+        let det = "—";
+        if (e.event === "fill") {
+          det = fmt(e.price, 4) + " \u00d7 " + fmtQty(e.qty) + "  ($" + (e.notional_usd != null && isFinite(+e.notional_usd) ? (+e.notional_usd).toFixed(2) : "—") + ")";
+        } else if (e.event === "fee") {
+          const fu = (e.fee_usd != null && isFinite(+e.fee_usd)) ? (+e.fee_usd).toFixed(4) : "—";
+          const nu = (e.notional_usd != null && isFinite(+e.notional_usd)) ? (+e.notional_usd).toFixed(2) : "—";
+          det = "taker $" + fu + " on $" + nu;
+          if (e.taker_fee_bps != null && isFinite(+e.taker_fee_bps)) {
+            det += "  (" + e.taker_fee_bps + " bps)";
+          }
+        } else if (e.event === "reject") {
+          det = escHtml(e.message || e.result || "—");
+        } else if (e.event === "split") {
+          const r0 = (e.ratio != null && isFinite(+e.ratio)) ? e.ratio : "—";
+          const src = e.source != null ? escHtml(e.source) : "—";
+          det = r0 + ":1  \u00b7  " + src;
+        } else if (e.event === "dividend") {
+          const cr = (e.cash_received != null && isFinite(+e.cash_received)) ? (+e.cash_received).toFixed(2) : "—";
+          const ups = (e.usd_per_share != null && isFinite(+e.usd_per_share)) ? (+e.usd_per_share).toFixed(4) : "—";
+          const src = e.source != null ? escHtml(e.source) : "—";
+          det = "$" + ups + "/sh ex-div  \u2192  +$" + cr + "  \u00b7  " + src;
+        } else if (e.event === "buyback") {
+          const ff = (e.float_fraction != null && isFinite(+e.float_fraction)) ? ((+e.float_fraction) * 100).toFixed(2) + "%" : "—";
+          const uo = (e.units_outstanding != null && isFinite(+e.units_outstanding)) ? escHtml(String(Math.round(+e.units_outstanding))) : "—";
+          const src = e.source != null ? escHtml(e.source) : "—";
+          det = "retire " + ff + " float  \u00b7  " + uo + " sh out  \u00b7  " + src;
+        } else if (e.event === "liquidation") {
+          const pr = (e.price != null && isFinite(+e.price)) ? fmt(+e.price, 4) : "—";
+          const qq = (e.qty != null && isFinite(+e.qty)) ? fmtQty(+e.qty) : "—";
+          const rs = e.reason != null ? escHtml(e.reason) : "—";
+          det = pr + " \u00d7 " + qq + "  \u00b7  " + rs;
+        }
+        return (
+          "<tr><td>" + escHtml(String(e.sim_tick != null ? e.sim_tick : "")) + "</td>" +
+          "<td>" + escHtml(ev) + "</td>" +
+          "<td><b>" + escHtml(tk) + "</b></td>" +
+          "<td>" + escHtml(ot) + "</td>" +
+          "<td>" + escHtml(sd) + "</td>" +
+          '<td style="text-align:left; font-size:0.72rem; line-height:1.3">' + det + "</td></tr>"
+        );
+      }).join("");
+    }
+    function paintState(s) {
+      $("raw").textContent = JSON.stringify(s, null, 2);
+      $("mode").textContent = s.mode;
+      $("tick").textContent = s.tick;
+      if (s.time) {
+        $("mpt").textContent = s.time.sim_minutes_per_tick + " min";
+        if (s.time.stock_fund_annual_return != null) {
+          $("metaLine").textContent =
+            "Equity drift (sim/yr) ~" + (100 * s.time.stock_fund_annual_return).toFixed(0) + "%  ·  taker " + s.time.taker_fee_bps + " bps  ·  slip " + s.time.slippage_bps_base + " + " + s.time.slippage_bps_per_million + "/$1M  ·  fr " + s.time.front_run_bps + " bps  ·  top tier " + s.time.crypto_top_tier;
+        }
+      }
+      if ($("microLine")) {
+        if (s.micro && s.micro.lagging_peer) {
+          const lp = s.micro.lagging_peer;
+          const sm = s.time && s.time.sim_minute_of_day != null ? Math.round(s.time.sim_minute_of_day) : "—";
+          const ts = s.micro.tod_shape != null ? s.micro.tod_shape.toFixed(2) : "—";
+          const ocb = s.micro.open_calendar_extra_bps != null && isFinite(+s.micro.open_calendar_extra_bps)
+            ? (+s.micro.open_calendar_extra_bps).toFixed(1) : null;
+          const ocbit = ocb != null && +ocb > 0.04 ? "  ·  open +" + ocb + " bps NPC half-spread" : "";
+          $("microLine").textContent =
+            "TOD (sim min) " + sm + "  shape " + ts + "  ·  " + lp.leader + " vs " + lp.lagger + "  div " + (lp.divergence_20t_bps * 1).toFixed(0) + " bps  ·  ρ " + (lp.return_corr_ew * 1).toFixed(2) + ocbit + "  — tape & wick: watchlist columns or JSON";
+        } else { $("microLine").textContent = ""; }
+      }
+      if ($("newsLine")) {
+        const arr = s.news;
+        const nw = arr && arr.length ? arr[arr.length - 1] : null;
+        $("newsLine").textContent = nw && nw.line ? ("News: " + String(nw.line)) : "";
+      }
+      const gdst = $("greatDepressStatus");
+      if (gdst && s.depression) {
+        const d = s.depression;
+        const gcb = $("cbGreatDep");
+        if (gcb && d.fired && !d.armed) gcb.checked = false;
+        if (d.armed && d.ticks_to_event != null) {
+          gdst.textContent = "Great Depression in ~" + d.ticks_to_event + " ticks (recheck box on each New game).";
+        } else if (d.in_recovery) {
+          gdst.textContent = "Great Depression: recovery in progress (most names ≈ 99% of pre-crash).";
+        } else if (d.fired) {
+          gdst.textContent = "Great Depression: episode over. Option is off; start a new game to enable again.";
+        } else {
+          gdst.textContent = "";
+        }
+      }
+      const p = s.player;
+      const scIn = $("startingCash");
+      if (scIn && s.tick === 0 && typeof p.cash === "number" && isFinite(p.cash)) {
+        if (document.activeElement !== scIn) {
+          scIn.value = String(p.cash);
+        }
+      }
+      if ($("bApplyStartingCash")) {
+        const t = s.tick != null ? +s.tick : 0;
+        $("bApplyStartingCash").disabled = t !== 0;
+      }
+      $("cash").textContent = p.cash.toFixed(2);
+      if ($("fees")) $("fees").textContent = (p.fees_paid != null ? p.fees_paid : 0).toFixed(2);
+      $("lca").textContent = p.locked_cash.toFixed(2);
+      $("eq").textContent = p.equity.toFixed(2);
+      const sel = $("ticker");
+      const current = sel.value;
+      sel.innerHTML = "";
+      const tickList = s.instruments.slice().sort(function (a, b) {
+        return String(a.ticker).localeCompare(String(b.ticker), undefined, { sensitivity: "base" });
+      });
+      tickList.forEach((x) => {
+        const o = document.createElement("option");
+        o.value = x.ticker;
+        o.textContent = x.ticker + "  (" + x.kind + ")";
+        sel.appendChild(o);
+      });
+      if (tickList.length) {
+        if (!current || !tickList.some((x) => x.ticker === current)) {
+          sel.value = tickList[0].ticker;
+        } else { sel.value = current; }
+      }
+      renderWatchTable(s);
+      renderPortHoldings(s);
+      renderOrderLog(s);
+      if (s.trend_override) {
+        if ($("trendSlider")) $("trendSlider").value = s.trend_override.value;
+        if ($("trendVal")) $("trendVal").textContent = String(s.trend_override.value);
+        if ($("trendScope")) $("trendScope").value = s.trend_override.scope;
+        if ($("trendCustomWrap")) {
+          $("trendCustomWrap").style.display = s.trend_override.scope === "custom" ? "block" : "none";
+        }
+      }
+      fillTrendCustomFromState(s);
+      if (s.volatility_override) {
+        if ($("volSlider")) $("volSlider").value = s.volatility_override.value;
+        if ($("volVal")) $("volVal").textContent = String(s.volatility_override.value);
+        if ($("volMeta")) {
+          const v = s.volatility_override;
+          if (v.active === "off" || v.value === 0) {
+            $("volMeta").textContent = "Off  ·  equity μ×1.0  ·  σ×1.0 (stocks, funds, crypto)";
+          } else {
+            const em = v.equity_mu_mult != null ? (+v.equity_mu_mult).toFixed(2) : "—";
+            const sm = v.listed_equity_sigma_mult != null ? (+v.listed_equity_sigma_mult).toFixed(2)
+              : (v.crypto_sigma_mult != null ? (+v.crypto_sigma_mult).toFixed(2) : "—");
+            $("volMeta").textContent = "Equity long-run μ×" + em + "  ·  σ×" + sm + " (stocks, funds, crypto)";
+          }
+        }
+      }
+      refreshOpenChart();
+    }
+    let chartW = null;
+    let series = null;
+    let chartOpenTk = null;
+    let chartViewMode = "price";
+    let lastChartCandles = [];
+    let lastChartCandlesMcap = [];
+    function getActiveCandles() {
+      if (chartViewMode === "mcap" && lastChartCandlesMcap && lastChartCandlesMcap.length) {
+        return lastChartCandlesMcap;
+      }
+      return lastChartCandles;
+    }
+    function setChartTabUI() {
+      const p = $("chartTabPrice");
+      const m = $("chartTabMcap");
+      if (p) {
+        p.classList.toggle("active", chartViewMode === "price");
+        p.setAttribute("aria-selected", chartViewMode === "price" ? "true" : "false");
+      }
+      if (m) {
+        m.classList.toggle("active", chartViewMode === "mcap");
+        m.setAttribute("aria-selected", chartViewMode === "mcap" ? "true" : "false");
+      }
+    }
+    function updateChartMcapTabEnabled() {
+      const m = $("chartTabMcap");
+      if (m) m.disabled = !lastChartCandlesMcap || !lastChartCandlesMcap.length;
+    }
+    function destroyCandleChart() {
+      if (chartW) {
+        try { chartW.remove(); } catch (e) { /* */ }
+        chartW = null;
+      }
+      series = null;
+      lastChartCandles = [];
+      lastChartCandlesMcap = [];
+      chartViewMode = "price";
+    }
+    function ohlcBarEndSimTick(c) {
+      if (!c || c.time == null) return null;
+      const tv = +c.time;
+      if (!isFinite(tv) || tv < 1e9) return null;
+      return Math.round(tv - 1e9);
+    }
+    function updateChartOhlcHudFromCandle(c, mcapMode) {
+      const hud = $("chartOhlcHud");
+      if (!hud) return;
+      mcapMode = !!mcapMode;
+      if (!c) {
+        hud.hidden = true;
+        hud.textContent = "—";
+        return;
+      }
+      const o = +c.open; const h = +c.high; const lo = +c.low; const cl = +c.close;
+      if (![o, h, lo, cl].every((x) => isFinite(x))) {
+        hud.hidden = true;
+        return;
+      }
+      const dUsd = cl - o;
+      const dPct = o !== 0 ? (100 * (cl - o)) / o : 0;
+      const f = (n, dec) => (isFinite(n) ? n.toFixed(dec) : "—");
+      const fu = (n) => (isFinite(n) ? (Math.abs(n) < 1e3 ? f(n, 0) : fmtMcapShort(n)) : "—");
+      const ucls = dUsd >= 0 ? "hud-up" : "hud-dn";
+      const sign = dUsd >= 0 ? "+" : "";
+      const btick = ohlcBarEndSimTick(c);
+      const tline = btick != null
+        ? '<p class="hud-row" style="font-size:0.7rem;opacity:0.95"><span class="hud-k">bar end (sim t)</span>' + btick + "</p>"
+        : "";
+      const ohl1 = mcapMode
+        ? '<p class="hud-row"><span class="hud-k">Mcap O</span>' + fu(o) + ' &nbsp;<span class="hud-k">H</span>' + fu(h) + '</p>' +
+        '<p class="hud-row"><span class="hud-k">L</span>' + fu(lo) + ' &nbsp;<span class="hud-k">C</span>' + fu(cl) + "</p>" +
+        '<p class="hud-row ' + ucls + '"><span class="hud-k">Δ</span>' + sign + fu(dUsd) + ' &nbsp;<span class="hud-k">bar %</span>' + sign + f(dPct, 2) + "%</p>"
+        : '<p class="hud-row"><span class="hud-k">O</span>' + f(o, 4) + ' &nbsp;<span class="hud-k">H</span>' + f(h, 4) + '</p>' +
+        '<p class="hud-row"><span class="hud-k">L</span>' + f(lo, 4) + ' &nbsp;<span class="hud-k">C</span>' + f(cl, 4) + '</p>' +
+        '<p class="hud-row ' + ucls + '"><span class="hud-k">Δ$</span>' + sign + f(dUsd, 4) + ' &nbsp;<span class="hud-k">bar %</span>' + sign + f(dPct, 2) + "%</p>";
+      hud.innerHTML = ohl1 + tline;
+      hud.hidden = false;
+    }
+    function clearChartOhlcHud() {
+      const hud = $("chartOhlcHud");
+      if (hud) { hud.hidden = true; hud.textContent = "—"; }
+    }
+    function closeChart() {
+      chartOpenTk = null;
+      const m = $("chartModal");
+      if (m) {
+        m.classList.remove("is-open");
+        m.setAttribute("aria-hidden", "true");
+      }
+      destroyCandleChart();
+      const cc = $("chartContainer");
+      if (cc) cc.innerHTML = "";
+      if ($("chartOhlcHud")) { $("chartOhlcHud").hidden = true; }
+    }
+    function chartMetaLine(d) {
+      const n = (d.candles && d.candles.length) || (lastChartCandles && lastChartCandles.length) || 0;
+      const st = (d && d.sim_tick != null) ? d.sim_tick : (lastState && lastState.tick != null ? lastState.tick : "\u2014");
+      const mcap = chartViewMode === "mcap" && lastChartCandlesMcap && lastChartCandlesMcap.length;
+      if ($("chartMeta")) {
+        $("chartMeta").textContent = mcap
+          ? "Sim tick " + st + "  \u00b7  " + n + " bars (mkt cap, USD  ·  mid \u00d7 float)"
+          : "Sim tick " + st + "  \u00b7  " + n + " bars (listed mid)";
+      }
+    }
+    function applyChartPriceFormat() {
+      if (!series) return;
+      const mcap = chartViewMode === "mcap" && lastChartCandlesMcap && lastChartCandlesMcap.length;
+      if (mcap) {
+        series.applyOptions({
+          priceFormat: {
+            type: "custom",
+            minMove: 0.0001,
+            formatter: function (p) { return fmtMcapShort(p); }
+          }
+        });
+        if (chartW) {
+          chartW.applyOptions({
+            localization: { priceFormatter: function (p) { return fmtMcapShort(p); } }
+          });
+        }
+      } else {
+        series.applyOptions({
+          priceFormat: {
+            type: "price",
+            precision: 4,
+            minMove: 0.0001
+          }
+        });
+        if (chartW) {
+          chartW.applyOptions({
+            localization: {
+              priceFormatter: function (p) {
+                if (p == null || !isFinite(p)) return String(p);
+                return (+p).toFixed(4);
+              }
+            }
+          });
+        }
+      }
+    }
+    function applyActiveChartData(d) {
+      if (!series || !chartW) return;
+      const mcap = chartViewMode === "mcap" && lastChartCandlesMcap && lastChartCandlesMcap.length;
+      const data = mcap ? lastChartCandlesMcap : lastChartCandles;
+      if (!data || !data.length) return;
+      applyChartPriceFormat();
+      series.setData(data);
+      chartW.timeScale().fitContent();
+      if (d) { chartMetaLine(d); }
+      updateChartOhlcHudFromCandle(data[data.length - 1], mcap);
+    }
+    function onChartTab(mode) {
+      if (mode === "mcap" && (!lastChartCandlesMcap || !lastChartCandlesMcap.length)) return;
+      chartViewMode = mode;
+      setChartTabUI();
+      applyActiveChartData({ candles: lastChartCandles, sim_tick: (lastState && lastState.tick != null) ? lastState.tick : null });
+    }
+    async function loadAndDrawChart() {
+      const tk = chartOpenTk;
+      if (!tk) return;
+      const b = Math.max(1, Math.min(80, +$("chartBucket").value || 4));
+      const d = await j(
+        "/api/chart/" + encodeURIComponent(tk) + "?bucket=" + b + "&max_bars=0",
+        { method: "GET" }
+      );
+      if ($("chartTitle")) $("chartTitle").textContent = d.ticker + " \u00b7 " + b + " tick/candle";
+      const can = d.candles || [];
+      const canM = d.candles_mcap || [];
+      lastChartCandles = can;
+      lastChartCandlesMcap = canM;
+      if (chartViewMode === "mcap" && !canM.length) {
+        chartViewMode = "price";
+      }
+      setChartTabUI();
+      updateChartMcapTabEnabled();
+      const LC = window.LightweightCharts;
+      if (!LC) {
+        showMsg("Chart library failed to load", false);
+        return;
+      }
+      if (!can.length) {
+        if (series) series.setData([]);
+        clearChartOhlcHud();
+        if ($("chartMeta")) $("chartMeta").textContent = "";
+        return;
+      }
+      if (!chartW) {
+        const el = $("chartContainer");
+        if (!el) return;
+        const w0 = el.clientWidth || 600;
+        const h0 = Math.min(480, window.innerHeight * 0.5);
+        chartW = LC.createChart(el, {
+          width: w0,
+          height: h0,
+          layout: { background: { type: LC.ColorType.Solid, color: "#12161c" }, textColor: "#c8d0d8" },
+          grid: { vertLines: { color: "#2a3340" }, horzLines: { color: "#2a3340" } },
+          rightPriceScale: { borderColor: "#2a3340" },
+          timeScale: { borderColor: "#2a3340" },
+        });
+        series = chartW.addCandlestickSeries({
+          upColor: "#3ecf8e",
+          downColor: "#f07178",
+          borderVisible: false,
+          wickUpColor: "#3ecf8e",
+          wickDownColor: "#f07178",
+        });
+        chartW.subscribeCrosshairMove((param) => {
+          if (!series) return;
+          const isM = chartViewMode === "mcap" && lastChartCandlesMcap && lastChartCandlesMcap.length;
+          const arr = isM ? lastChartCandlesMcap : lastChartCandles;
+          const t = param.time;
+          if (t == null) {
+            if (arr && arr.length) {
+              updateChartOhlcHudFromCandle(arr[arr.length - 1], isM);
+            }
+            return;
+          }
+          let row = null;
+          try { row = param.seriesData.get(series); } catch (e) { /* */ }
+          let c = null;
+          if (row && isFinite(+row.open) && isFinite(+row.close)) {
+            c = { time: t, open: +row.open, high: +row.high, low: +row.low, close: +row.close };
+          } else {
+            c = (arr && arr.length) ? arr.find(function (x) { return x.time === t; }) || null : null;
+          }
+          if (c) updateChartOhlcHudFromCandle(c, isM);
+          else if (arr && arr.length) {
+            updateChartOhlcHudFromCandle(arr[arr.length - 1], isM);
+          }
+        });
+      } else {
+        if (chartW) chartW.applyOptions({ width: $("chartContainer").clientWidth || 600 });
+      }
+      if (series) {
+        applyActiveChartData(d);
+      }
+    }
+    function openChart(ticker) {
+      const tk = String(ticker).trim().toUpperCase();
+      if (!tk) return;
+      chartOpenTk = tk;
+      chartViewMode = "price";
+      setChartTabUI();
+      const m = $("chartModal");
+      if (m) {
+        m.classList.add("is-open");
+        m.setAttribute("aria-hidden", "false");
+      }
+      destroyCandleChart();
+      if ($("chartContainer")) $("chartContainer").innerHTML = "";
+      setChartTabUI();
+      updateChartMcapTabEnabled();
+      loadAndDrawChart().catch((e) => showMsg(String(e), false));
+    }
+    function refreshOpenChart() {
+      if (!chartOpenTk) return;
+      const m = $("chartModal");
+      if (m && m.classList.contains("is-open")) {
+        loadAndDrawChart().catch(function () { /* */ });
+      }
+    }
+    async function postStepTicks(n) {
+      const s = await j("/api/step", { method: "POST", body: JSON.stringify({ ticks: n || 1 }) });
+      lastState = s;
+      paintState(s);
+      return s;
+    }
+    async function refresh() {
+      const s = await j("/api/state", { method: "GET" });
+      lastState = s;
+      paintState(s);
+    }
+    let autoTimer = null;
+    function getAutoTps() {
+      const el = $("autoRate");
+      if (!el) return 1;
+      const n = +el.value;
+      return n >= 1 && n <= 50 ? n : 1;
+    }
+    function syncAutoRateLabel() {
+      const el = $("autoRate");
+      const v = getAutoTps();
+      if ($("autoRateVal")) $("autoRateVal").textContent = v + (v === 1 ? " tick/s" : " ticks/s");
+    }
+    function stopAutoRun() {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+      }
+    }
+    function startAutoRun() {
+      stopAutoRun();
+      syncAutoRateLabel();
+      const tick = () => {
+        if (!$("autoRun") || !$("autoRun").checked) return;
+        const tps = getAutoTps();
+        j("/api/step", { method: "POST", body: JSON.stringify({ ticks: tps }) })
+          .then((s) => { lastState = s; paintState(s); })
+          .catch((e) => { showMsg(String(e), false); if ($("autoRun")) $("autoRun").checked = false; stopAutoRun(); });
+      };
+      autoTimer = setInterval(tick, 1000);
+    }
+    function _amtNum() {
+      return parseFloat(String($("size").value).replace(",", ".")) || 0;
+    }
+    function sideBody(extra) {
+      return Object.assign(
+        { ticker: $("ticker").value.trim().toUpperCase(), size: _amtNum() },
+        extra || {}
+      );
+    }
+    function bodyBuyMkt() {
+      const t = $("ticker").value.trim().toUpperCase();
+      if ($("allCash").checked) {
+        return { ticker: t, type: "market", side: "buy", all_cash: true };
+      }
+      if ($("sizingCash").checked) {
+        return { ticker: t, type: "market", side: "buy", notional: _amtNum() };
+      }
+      return { ticker: t, type: "market", side: "buy", size: _amtNum() };
+    }
+    function bodyBuyLimit() {
+      const t = $("ticker").value.trim().toUpperCase();
+      const pr = parseFloat($("lprice").value) || 0;
+      if ($("allCash").checked) {
+        return { ticker: t, type: "limit", side: "buy", price: pr, all_cash: true };
+      }
+      if ($("sizingCash").checked) {
+        return { ticker: t, type: "limit", side: "buy", price: pr, notional: _amtNum() };
+      }
+      return { ticker: t, type: "limit", side: "buy", price: pr, size: _amtNum() };
+    }
+    function syncBuySizingUI() {
+      const cash = $("sizingCash").checked;
+      const all = $("allCash").checked;
+      $("amtLabel").textContent = all ? "—" : (cash ? "Cash ($)" : "Size (sh)");
+      $("size").disabled = all;
+      $("size").title = all ? "Using 100% of free cash" : (cash ? "Max spend (USD) capped by available cash" : "Order size in shares / coins");
+    }
+    ["sizingSh", "sizingCash", "allCash"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("change", syncBuySizingUI);
+    });
+    syncBuySizingUI();
+    const wthead = document.querySelector("#watchTable thead");
+    if (wthead) {
+      wthead.addEventListener("click", (e) => {
+        const th = e.target.closest("th.th-sort");
+        if (!th) return;
+        const k = th.getAttribute("data-sort-key");
+        if (!k) return;
+        if (sortKey === k) sortDir = -sortDir;
+        else { sortKey = k; sortDir = -1; }
+        if (lastState) renderWatchTable(lastState);
+      });
+    }
+    async function doStep(n) {
+      await postStepTicks(n);
+      showMsg("ok", true);
+    }
+    async function doOrder(body) {
+      const r = await j("/api/order", { method: "POST", body: JSON.stringify(body) });
+      if (r.ok) {
+        showMsg("Filled / accepted", true);
+      } else {
+        showMsg(r.error || r.order_result || "rejected", false);
+      }
+      await refresh();
+    }
+    async function applyStartingCash() {
+      const scEl = $("startingCash");
+      const raw = scEl && scEl.value != null ? String(scEl.value).trim() : "";
+      const c0 = parseFloat(raw);
+      if (!isFinite(c0) || c0 < 1e-4 || c0 > 100000000) {
+        showMsg("Starting cash must be between $0.0001 and $100,000,000", false);
+        return;
+      }
+      try {
+        await j("/api/starting-cash", { method: "POST", body: JSON.stringify({ cash: c0 }) });
+      } catch (e) {
+        showMsg(String(e), false);
+        return;
+      }
+      await refresh();
+      showMsg("Starting cash updated", true);
+    }
+    async function onReset() {
+      closeChart();
+      stopAutoRun();
+      _trendInstrKey = "";
+      if ($("autoRun")) $("autoRun").checked = false;
+      const scEl = $("startingCash");
+      const raw = scEl && scEl.value != null ? String(scEl.value).trim() : "";
+      const c0 = parseFloat(raw);
+      if (!isFinite(c0) || c0 < 1e-4 || c0 > 100000000) {
+        showMsg("Starting cash must be between $0.0001 and $100,000,000", false);
+        return;
+      }
+      await j("/api/reset", {
+        method: "POST",
+        body: JSON.stringify({
+          mode: $("resetMode").value,
+          great_depression: $("cbGreatDep") && $("cbGreatDep").checked,
+          starting_cash: c0,
+        }),
+      });
+      await refresh();
+      showMsg("New session", true);
+    }
+    $("bt").onclick = () => doStep(1);
+    $("b5").onclick = () => doStep(5);
+    $("b50").onclick = () => doStep(50);
+    $("bRunTime").onclick = async () => {
+      const s = await j("/api/step", {
+        method: "POST",
+        body: JSON.stringify({ unit: ($("iunit").value || "day").trim(), n: +$("inum").value || 0 }),
+      });
+      lastState = s;
+      paintState(s);
+      showMsg("Time advanced", true);
+    };
+    if ($("autoRun")) {
+      $("autoRun").addEventListener("change", () => {
+        if ($("autoRun").checked) startAutoRun();
+        else stopAutoRun();
+      });
+    }
+    if ($("autoRate")) {
+      $("autoRate").addEventListener("input", syncAutoRateLabel);
+    }
+    syncAutoRateLabel();
+    if ($("trendSlider")) {
+      $("trendSlider").addEventListener("input", scheduleTrendPost);
+    }
+    if ($("volSlider")) {
+      $("volSlider").addEventListener("input", scheduleVolPost);
+    }
+    if ($("trendScope")) {
+      $("trendScope").addEventListener("change", function () {
+        const sc = $("trendScope").value;
+        if ($("trendCustomWrap")) $("trendCustomWrap").style.display = sc === "custom" ? "block" : "none";
+        if (sc !== "custom") { postTrend(true).catch((e) => showMsg(String(e), false)); }
+      });
+    }
+    if ($("bTrendApply")) {
+      $("bTrendApply").onclick = () => postTrend(false).catch((e) => showMsg(String(e), false));
+    }
+    if ($("tbl")) {
+      $("tbl").addEventListener("click", (e) => {
+        const tr = e.target.closest("tr[data-ticker]");
+        if (tr) openChart(tr.getAttribute("data-ticker"));
+      });
+    }
+    if ($("portHoldingsInner")) {
+      $("portHoldingsInner").addEventListener("click", (e) => {
+        const tr = e.target.closest("tr.port-row-click[data-ticker]");
+        if (tr) openChart(tr.getAttribute("data-ticker"));
+      });
+    }
+    if ($("chartClose")) $("chartClose").addEventListener("click", () => closeChart());
+    /* No backdrop click-to-close: chart overlay has pointer-events:none; no full-page dim so side panels stay clear. */
+    if ($("chartBucket")) {
+      $("chartBucket").addEventListener("change", () => { if (chartOpenTk) loadAndDrawChart().catch(() => {}); });
+    }
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && chartOpenTk) closeChart();
+    });
+    window.addEventListener("resize", () => {
+      if (chartW && $("chartContainer")) {
+        const w = $("chartContainer").clientWidth;
+        if (w) chartW.applyOptions({ width: w });
+      }
+    });
+    $("bReset").onclick = onReset;
+    if ($("bApplyStartingCash")) $("bApplyStartingCash").onclick = () => applyStartingCash().catch((e) => showMsg(String(e), false));
+    $("bBuy").onclick = () => doOrder(bodyBuyMkt());
+    $("bSell").onclick = () => doOrder(sideBody({ type: "market", side: "sell" }));
+    $("bLb").onclick = () => doOrder(bodyBuyLimit());
+    $("bLs").onclick = () => doOrder(sideBody({ type: "limit", side: "sell", price: +$("lprice").value || 0 }));
+    if ($("bSp2")) $("bSp2").onclick = () => postStockSplit(2);
+    if ($("bSp3")) $("bSp3").onclick = () => postStockSplit(3);
+    if ($("bSplitGo")) {
+      $("bSplitGo").onclick = () => {
+        const el = $("splitN");
+        postStockSplit(el ? el.value : 2);
+      };
+    }
+    if ($("bDivGo")) $("bDivGo").onclick = () => { postStockDividend().catch((e) => showMsg(String(e), false)); };
+    if ($("bBbGo")) $("bBbGo").onclick = () => { postStockBuyback().catch((e) => showMsg(String(e), false)); };
+    if ($("chartTabPrice")) $("chartTabPrice").onclick = function () { onChartTab("price"); };
+    if ($("chartTabMcap")) $("chartTabMcap").onclick = function () { onChartTab("mcap"); };
+    refresh().catch((e) => showMsg(String(e), false));
+  })();
+  </script>
+</body>
+</html>
