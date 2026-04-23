@@ -495,6 +495,7 @@
               <button type="button" class="primary" id="bt">+1 tick</button>
               <button type="button" id="b5">+5</button>
               <button type="button" id="b50">+50</button>
+              <button type="button" id="b96" title="One sim day at 15 min/tick">+96 (1d)</button>
             </div>
             <div class="row">
               <label class="fld">Interval
@@ -746,7 +747,7 @@
             <input type="checkbox" id="cbConfirmLarge" checked />
             <span>Confirm large orders over $<input id="confirmNotional" type="number" min="1000" step="1000" value="250000" style="width:7.2rem; margin-left:0.25rem" /></span>
           </label>
-          <p class="meta-line" style="margin:0.3rem 0 0; font-size:0.65rem">Hotkeys: B/S market buy/sell, L limit buy, K limit sell, N next tick, 1/5/0 = +1/+5/+50, F flatten all.</p>
+          <p class="meta-line" style="margin:0.3rem 0 0; font-size:0.65rem">Hotkeys: Enter run interval, / symbol, B/S mkt buy/sell, L/K limit buy/sell, N or 1 +1, 5 +5, 0 +50, 9 or D +96 (1d), F flatten, R auto on/off, [ ] auto rate, C open chart, Esc close panel/chart. (No hotkeys while typing)</p>
           <details class="order-log-panel details-overlay-only" id="orderLogPanel" style="margin:0.55rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
             <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Order history &amp; audit</summary>
             <p class="meta-line" style="margin:0.35rem 0 0.25rem; font-size:0.68rem">Fills, fees, rejects, splits, cash dividends, and buybacks (newest first).</p>
@@ -2211,6 +2212,7 @@
     $("bt").onclick = () => doStep(1);
     $("b5").onclick = () => doStep(5);
     $("b50").onclick = () => doStep(50);
+    if ($("b96")) $("b96").onclick = () => doStep(96);
     $("bRunTime").onclick = async () => {
       const s = await j("/api/step", {
         method: "POST",
@@ -2382,11 +2384,24 @@
       if (el) el.addEventListener("change", () => { savePrefs(); if (lastState && (id === "watchKindStock" || id === "watchKindFund" || id === "watchKindCrypto" || id === "watchHeldOnly" || id === "watchFavFirst" || id === "tableDensity")) paintState(lastState); });
     });
     document.addEventListener("keydown", (e) => {
+      if (e.key === "Tab") {
+        e.preventDefault();
+      }
+    });
+    document.addEventListener("keydown", (e) => {
       const t = e.target;
       const inEdit = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
       if (inEdit) return;
       const k = String(e.key || "").toLowerCase();
-      if (k === "b") { e.preventDefault(); doOrder(bodyBuyMkt()).catch((err) => showMsg(String(err), false)); }
+      if (k === "enter") {
+        e.preventDefault();
+        $("bRunTime").click();
+      }
+      else if (k === "/") {
+        e.preventDefault();
+        if ($("ticker")) $("ticker").focus();
+      }
+      else if (k === "b") { e.preventDefault(); doOrder(bodyBuyMkt()).catch((err) => showMsg(String(err), false)); }
       else if (k === "s") { e.preventDefault(); doOrder(sideBody({ type: "market", side: "sell" })).catch((err) => showMsg(String(err), false)); }
       else if (k === "l") { e.preventDefault(); doOrder(bodyBuyLimit()).catch((err) => showMsg(String(err), false)); }
       else if (k === "k") { e.preventDefault(); doOrder(sideBody({ type: "limit", side: "sell", price: +$("lprice").value || 0 })).catch((err) => showMsg(String(err), false)); }
@@ -2394,7 +2409,34 @@
       else if (k === "1") { e.preventDefault(); doStep(1).catch((err) => showMsg(String(err), false)); }
       else if (k === "5") { e.preventDefault(); doStep(5).catch((err) => showMsg(String(err), false)); }
       else if (k === "0") { e.preventDefault(); doStep(50).catch((err) => showMsg(String(err), false)); }
+      else if (k === "9" || k === "d") { e.preventDefault(); doStep(96).catch((err) => showMsg(String(err), false)); }
       else if (k === "f") { e.preventDefault(); doFlatten(null).catch((err) => showMsg(String(err), false)); }
+      else if (k === "r") {
+        e.preventDefault();
+        if ($("autoRun")) {
+          $("autoRun").checked = !$("autoRun").checked;
+          $("autoRun").dispatchEvent(new Event("change"));
+        }
+      }
+      else if (k === "[") {
+        e.preventDefault();
+        if ($("autoRate")) {
+          $("autoRate").value = String(Math.max(1, (+$("autoRate").value || 1) - 1));
+          $("autoRate").dispatchEvent(new Event("input"));
+        }
+      }
+      else if (k === "]") {
+        e.preventDefault();
+        if ($("autoRate")) {
+          $("autoRate").value = String(Math.min(50, (+$("autoRate").value || 1) + 1));
+          $("autoRate").dispatchEvent(new Event("input"));
+        }
+      }
+      else if (k === "c") {
+        e.preventDefault();
+        const tk = $("ticker") ? $("ticker").value : "";
+        if (tk) openChart(tk);
+      }
     });
     loadPrefs();
     savePrefs();

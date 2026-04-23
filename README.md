@@ -190,7 +190,33 @@ Orders are checked against:
 
 ---
 
-## 8) TUI Command Cheat Sheet
+## 8) GUI Hotkeys (Website)
+
+Hotkeys are global while on the webpage, with guardrails:
+- they are ignored while typing in `input` / `select` / `textarea`,
+- `Esc` closes topmost panel/chart,
+- `Tab` is intentionally disabled in the page.
+
+Bindings:
+
+- `Enter` — run interval (`Interval × N`)
+- `/` — focus symbol selector
+- `B` — market buy current symbol
+- `S` — market sell current symbol
+- `L` — limit buy current symbol
+- `K` — limit sell current symbol
+- `N` or `1` — `+1` tick
+- `5` — `+5` ticks
+- `0` — `+50` ticks
+- `9` or `D` — `+96` ticks (about 1 sim day at 15 min/tick)
+- `F` — flatten all positions
+- `R` — toggle auto-run
+- `[` / `]` — auto-run rate down/up
+- `C` — open chart for selected ticker
+
+---
+
+## 9) TUI Command Cheat Sheet
 
 At the `>` prompt:
 
@@ -209,7 +235,7 @@ At the `>` prompt:
 
 ---
 
-## 9) CLI Flags You’ll Use Most
+## 10) CLI Flags You’ll Use Most
 
 General:
 - `--mode simple|easy|hard|complex|free|custom`
@@ -236,7 +262,7 @@ Realism:
 
 ---
 
-## 10) Modes and Universe
+## 11) Modes and Universe
 
 Preset mode names:
 - `simple`, `easy`, `hard`, `complex`, `free`, `custom`
@@ -254,7 +280,7 @@ python -m marketsim --custom --n-stocks 10 --n-funds 2 --n-crypto 3 --vol 1.1 --
 
 ---
 
-## 11) Miscellaneous Panel (Great Depression + Chaos)
+## 12) Miscellaneous Panel (Great Depression + Chaos)
 
 `> miscellaneous` includes:
 
@@ -274,7 +300,7 @@ These are **session config toggles** and apply on **New game**.
 
 ---
 
-## 12) API Quick Reference
+## 13) API Quick Reference
 
 Base URL: `http://127.0.0.1:8000` (default)
 
@@ -304,7 +330,7 @@ Base URL: `http://127.0.0.1:8000` (default)
 
 ---
 
-## 13) Troubleshooting
+## 14) Troubleshooting
 
 ### Port already in use
 
@@ -340,7 +366,7 @@ python -m marketsim --seed 42
 
 ---
 
-## 14) Project Map (For Curious Newbies)
+## 15) Project Map (For Curious Newbies)
 
 - `marketsim/__main__.py` — CLI entry (web/tui/headless)
 - `marketsim/api.py` — FastAPI routes
@@ -355,6 +381,6 @@ python -m marketsim --seed 42
 
 ---
 
-## 15) Disclaimer
+## 16) Disclaimer
 
 `marketsim` is a learning sandbox and simulation toy, not brokerage software or investment advice.
