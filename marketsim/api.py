@@ -506,8 +506,37 @@ def _parse_mode(m: str) -> GameModeName:
 @app.post("/api/reset", response_class=JSONResponse)
 def reset(body: dict | None = Body(default=None)) -> Any:
     body = body or {}
+    prev_cfg = get_game().config
     mode = str(body.get("mode", "simple") or "simple")
     c = preset(_parse_mode(mode))
+    # Preserve launch-time universe sizes (e.g. CLI overrides) unless caller explicitly overrides.
+    c = replace(
+        c,
+        n_stocks=int(prev_cfg.n_stocks),
+        n_funds=int(prev_cfg.n_funds),
+        n_crypto=int(prev_cfg.n_crypto),
+    )
+    raw_n_stocks = body.get("n_stocks", body.get("nStocks"))
+    if raw_n_stocks is not None and str(raw_n_stocks).strip() != "":
+        try:
+            n_stocks = int(raw_n_stocks)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(400, "n_stocks must be an integer") from e
+        c = replace(c, n_stocks=max(0, n_stocks))
+    raw_n_funds = body.get("n_funds", body.get("nFunds"))
+    if raw_n_funds is not None and str(raw_n_funds).strip() != "":
+        try:
+            n_funds = int(raw_n_funds)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(400, "n_funds must be an integer") from e
+        c = replace(c, n_funds=max(0, n_funds))
+    raw_n_crypto = body.get("n_crypto", body.get("nCrypto"))
+    if raw_n_crypto is not None and str(raw_n_crypto).strip() != "":
+        try:
+            n_crypto = int(raw_n_crypto)
+        except (TypeError, ValueError) as e:
+            raise HTTPException(400, "n_crypto must be an integer") from e
+        c = replace(c, n_crypto=max(0, n_crypto))
     if bool(body.get("great_depression")):
         c = replace(c, great_depression=True)
     chaos_map = {
