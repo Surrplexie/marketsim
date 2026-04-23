@@ -796,7 +796,10 @@ class Market:
             self._chaos_emit_news(f"{self.instruments[j].ticker}: meme squeeze impulse.", "chaos:meme_squeeze")
         # 3) Fat finger event.
         if self.chaos_fat_finger and float(self._rng.random()) < 4.0e-4:
-            j = int(self._rng.integers(0, n))
+            pool = stocks + cryptos
+            if not pool:
+                pool = list(range(n))
+            j = int(self._rng.choice(np.array(pool, dtype=np.int64)))
             bps = float(self._rng.uniform(-180.0, 180.0))
             self._chaos_apply_price_shock_bps(j, bps)
             self._chaos_emit_news(f"{self.instruments[j].ticker}: fat-finger sweep ({bps:+.0f} bps).", "chaos:fat_finger")
@@ -1070,7 +1073,14 @@ class Market:
                     acc += float(self._mids[i])
                 nav = acc / float(len(members))
             if math.isfinite(nav) and nav > 0.0:
-                self._mids[j] = max(float(MIN_MID), float(nav))
+                # Funds should track basket NAV, but avoid violent one-tick jumps.
+                prev = max(float(MIN_MID), float(self._mids[j]))
+                tgt = float(nav)
+                max_step = 0.06  # 6% max one-tick reprice for fund rows.
+                lo = prev * (1.0 - max_step)
+                hi = prev * (1.0 + max_step)
+                clipped = min(max(tgt, lo), hi)
+                self._mids[j] = max(float(MIN_MID), clipped)
 
     def _update_financing_regime(self) -> None:
         """

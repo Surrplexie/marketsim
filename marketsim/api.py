@@ -107,7 +107,8 @@ def _state() -> dict[str, Any]:
                 "ticker": ins.ticker,
                 "kind": ins.kind.value,
                 "sector": ins.sector,
-                "marketcap": ins.market_cap,
+                # Keep watchlist Mcap consistent with chart Mcap mode: listed mid × float.
+                "marketcap": float(mid) * float(ins.units_outstanding),
                 "units_outstanding": ins.units_outstanding,
                 "max_units_outstanding": ins.max_units_outstanding,
                 "allow_supply_inflation": bool(ins.allow_supply_inflation),
