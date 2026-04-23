@@ -275,7 +275,7 @@ Default mega universe (when using 32/4/8 layout):
 Custom universe example:
 
 ```bash
-python -m marketsim --custom --n-stocks 10 --n-funds 2 --n-crypto 3 --vol 1.1 --spread 12
+python -m marketsim --web --mode complex --n-stocks 100 --n-funds 8 --n-crypto 20
 ```
 
 ---
