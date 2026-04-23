@@ -96,6 +96,8 @@ class Market:
     # For candlestick / chart: *(sim_tick, mid)* (listed quote mid) after each *step()*; unbounded
     # for the session (long runs can use a lot of memory).
     _chart_hist: list[deque[tuple[int, float]]] = field(default_factory=list, init=False, repr=False)
+    _chart_hist_mul: np.ndarray = field(init=False, repr=False)
+    _chart_hist_add: np.ndarray = field(init=False, repr=False)
     _vol_hist: list[deque[tuple[int, float]]] = field(default_factory=list, init=False, repr=False)
     _vol_snapshot: np.ndarray = field(init=False, repr=False)
     # Great depression: one random crash in [500,1000], then *recovery* ticks pull prices toward 99% of pre
@@ -189,6 +191,8 @@ class Market:
         self._mid_hist = [deque(maxlen=w + 1) for _ in range(n)]
         self._append_ch24_history()
         self._chart_hist = [deque() for _ in range(n)]
+        self._chart_hist_mul = np.ones(n, dtype=np.float64)
+        self._chart_hist_add = np.zeros(n, dtype=np.float64)
         self._vol_hist = [deque() for _ in range(n)]
         self._seed_chart_history()
         self._tape_ema = np.zeros(n, dtype=np.float64)
@@ -459,12 +463,9 @@ class Market:
         ins.units_outstanding = new_u
         ins.last = float(self._mids[j])
         self.books[j].apply_forward_split(r)
-        ch = self._chart_hist[j]
-        ch_items = list(ch)
-        self._chart_hist[j] = deque(
-            ((int(t), float(m) / r) for (t, m) in ch_items),
-            maxlen=ch.maxlen,
-        )
+        if 0 <= int(j) < int(self._chart_hist_mul.size):
+            self._chart_hist_mul[j] = float(self._chart_hist_mul[j] / r)
+            self._chart_hist_add[j] = float(self._chart_hist_add[j] / r)
         mh = self._mid_hist[j]
         mh_items = list(mh)
         self._mid_hist[j] = deque((float(x) / r for x in mh_items), maxlen=mh.maxlen)
@@ -488,12 +489,8 @@ class Market:
         dd = float(delta)
         if not math.isfinite(dd) or abs(dd) < 1e-15:
             return
-        ch = self._chart_hist[j]
-        ch_items = list(ch)
-        self._chart_hist[j] = deque(
-            ((int(t), max(float(MIN_MID), float(m) + dd)) for (t, m) in ch_items),
-            maxlen=ch.maxlen,
-        )
+        if 0 <= int(j) < int(self._chart_hist_add.size):
+            self._chart_hist_add[j] = float(self._chart_hist_add[j] + dd)
         mh = self._mid_hist[j]
         mh_items = list(mh)
         self._mid_hist[j] = deque(
@@ -544,12 +541,8 @@ class Market:
         dd = float(d)
         if dd <= 0.0 or not math.isfinite(dd):
             return
-        ch = self._chart_hist[j]
-        ch_items = list(ch)
-        self._chart_hist[j] = deque(
-            ((int(t), max(float(MIN_MID), float(m) - dd)) for (t, m) in ch_items),
-            maxlen=ch.maxlen,
-        )
+        if 0 <= int(j) < int(self._chart_hist_add.size):
+            self._chart_hist_add[j] = float(self._chart_hist_add[j] - dd)
         mh = self._mid_hist[j]
         mh_items = list(mh)
         self._mid_hist[j] = deque(
@@ -661,14 +654,20 @@ class Market:
         t = int(self._tick)
         for k in range(len(self.instruments)):
             _, mid, _ = self.quote(k)
-            self._chart_hist[k].append((t, float(mid)))
+            mul = float(self._chart_hist_mul[k])
+            add = float(self._chart_hist_add[k])
+            base = (float(mid) - add) / mul if abs(mul) > 1e-18 else float(mid)
+            self._chart_hist[k].append((t, base))
             self._vol_hist[k].append((t, 0.0))
 
     def _append_chart_row(self) -> None:
         t = int(self._tick)
         for k in range(len(self.instruments)):
             _, mid, _ = self.quote(k)
-            self._chart_hist[k].append((t, float(mid)))
+            mul = float(self._chart_hist_mul[k])
+            add = float(self._chart_hist_add[k])
+            base = (float(mid) - add) / mul if abs(mul) > 1e-18 else float(mid)
+            self._chart_hist[k].append((t, base))
             dv = max(0.0, float(self._cumulative_volume[k] - self._vol_snapshot[k]))
             self._vol_hist[k].append((t, dv))
             self._vol_snapshot[k] = float(self._cumulative_volume[k])
@@ -690,6 +689,8 @@ class Market:
         if not dq:
             return []
         pts = list(dq)
+        mul = float(self._chart_hist_mul[i]) if 0 <= i < int(self._chart_hist_mul.size) else 1.0
+        add = float(self._chart_hist_add[i]) if 0 <= i < int(self._chart_hist_add.size) else 0.0
         vols = list(self._vol_hist[i]) if 0 <= i < len(self._vol_hist) else []
         b = max(1, int(bucket))
         out: list[dict[str, int | float]] = []
@@ -699,7 +700,7 @@ class Market:
             if not seg:
                 break
             j += b
-            mids = [p[1] for p in seg]
+            mids = [float(p[1]) * mul + add for p in seg]
             t_end = int(seg[-1][0])
             o, h, lo, c = float(mids[0]), float(max(mids)), float(min(mids)), float(mids[-1])
             vseg = vols[j : j + b] if vols else []
@@ -1275,7 +1276,9 @@ class Market:
         if len(dq) < 2:
             return {"upper": 0.0, "lower": 0.0, "body": 0.0}
         take = list(dq)[-w:]
-        mids = [p[1] for p in take]
+        mul = float(self._chart_hist_mul[j]) if 0 <= int(j) < int(self._chart_hist_mul.size) else 1.0
+        add = float(self._chart_hist_add[j]) if 0 <= int(j) < int(self._chart_hist_add.size) else 0.0
+        mids = [float(p[1]) * mul + add for p in take]
         o, h, lo, c = float(mids[0]), float(max(mids)), float(min(mids)), float(mids[-1])
         ohc = wick_ohlc(o, h, lo, c)
         return ohc

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import time
 from dataclasses import replace
 
@@ -322,6 +323,13 @@ def main() -> None:
     args = p.parse_args()
     cfg = _make_config(args)
     if args.web:
+        # Windows/Python 3.13: avoid Proactor shutdown race in uvicorn
+        # (AssertionError in asyncio base_events._attach during server close).
+        if hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
+            try:
+                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            except Exception:
+                pass
         import uvicorn
         from .api import app, set_game
         set_game(new_session(custom=cfg))
