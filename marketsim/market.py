@@ -460,21 +460,25 @@ class Market:
         ins.last = float(self._mids[j])
         self.books[j].apply_forward_split(r)
         ch = self._chart_hist[j]
+        ch_items = list(ch)
         self._chart_hist[j] = deque(
-            ((int(t), float(m) / r) for (t, m) in ch),
+            ((int(t), float(m) / r) for (t, m) in ch_items),
             maxlen=ch.maxlen,
         )
         mh = self._mid_hist[j]
-        self._mid_hist[j] = deque((float(x) / r for x in mh), maxlen=mh.maxlen)
+        mh_items = list(mh)
+        self._mid_hist[j] = deque((float(x) / r for x in mh_items), maxlen=mh.maxlen)
         if self._gd_pre is not None and 0 <= j < int(self._gd_pre.size):
             self._gd_pre[j] = float(self._gd_pre[j]) / r
         if j == int(self._peer_a):
+            mqa_items = list(self._mqa)
             self._mqa = deque(
-                (float(x) / r for x in self._mqa), maxlen=self._mqa.maxlen
+                (float(x) / r for x in mqa_items), maxlen=self._mqa.maxlen
             )
         if j == int(self._peer_b):
+            mqb_items = list(self._mqb)
             self._mqb = deque(
-                (float(x) / r for x in self._mqb), maxlen=self._mqb.maxlen
+                (float(x) / r for x in mqb_items), maxlen=self._mqb.maxlen
             )
         return True
 
@@ -485,24 +489,28 @@ class Market:
         if not math.isfinite(dd) or abs(dd) < 1e-15:
             return
         ch = self._chart_hist[j]
+        ch_items = list(ch)
         self._chart_hist[j] = deque(
-            ((int(t), max(float(MIN_MID), float(m) + dd)) for (t, m) in ch),
+            ((int(t), max(float(MIN_MID), float(m) + dd)) for (t, m) in ch_items),
             maxlen=ch.maxlen,
         )
         mh = self._mid_hist[j]
+        mh_items = list(mh)
         self._mid_hist[j] = deque(
-            (max(float(MIN_MID), float(x) + dd) for x in mh), maxlen=mh.maxlen
+            (max(float(MIN_MID), float(x) + dd) for x in mh_items), maxlen=mh.maxlen
         )
         if self._gd_pre is not None and 0 <= j < int(self._gd_pre.size):
             self._gd_pre[j] = max(float(MIN_MID), float(self._gd_pre[j]) + dd)
         if j == int(self._peer_a):
+            mqa_items = list(self._mqa)
             self._mqa = deque(
-                (max(float(MIN_MID), float(x) + dd) for x in self._mqa),
+                (max(float(MIN_MID), float(x) + dd) for x in mqa_items),
                 maxlen=self._mqa.maxlen,
             )
         if j == int(self._peer_b):
+            mqb_items = list(self._mqb)
             self._mqb = deque(
-                (max(float(MIN_MID), float(x) + dd) for x in self._mqb),
+                (max(float(MIN_MID), float(x) + dd) for x in mqb_items),
                 maxlen=self._mqb.maxlen,
             )
 
@@ -537,24 +545,28 @@ class Market:
         if dd <= 0.0 or not math.isfinite(dd):
             return
         ch = self._chart_hist[j]
+        ch_items = list(ch)
         self._chart_hist[j] = deque(
-            ((int(t), max(float(MIN_MID), float(m) - dd)) for (t, m) in ch),
+            ((int(t), max(float(MIN_MID), float(m) - dd)) for (t, m) in ch_items),
             maxlen=ch.maxlen,
         )
         mh = self._mid_hist[j]
+        mh_items = list(mh)
         self._mid_hist[j] = deque(
-            (max(float(MIN_MID), float(x) - dd) for x in mh), maxlen=mh.maxlen
+            (max(float(MIN_MID), float(x) - dd) for x in mh_items), maxlen=mh.maxlen
         )
         if self._gd_pre is not None and 0 <= j < int(self._gd_pre.size):
             self._gd_pre[j] = max(float(MIN_MID), float(self._gd_pre[j]) - dd)
         if j == int(self._peer_a):
+            mqa_items = list(self._mqa)
             self._mqa = deque(
-                (max(float(MIN_MID), float(x) - dd) for x in self._mqa),
+                (max(float(MIN_MID), float(x) - dd) for x in mqa_items),
                 maxlen=self._mqa.maxlen,
             )
         if j == int(self._peer_b):
+            mqb_items = list(self._mqb)
             self._mqb = deque(
-                (max(float(MIN_MID), float(x) - dd) for x in self._mqb),
+                (max(float(MIN_MID), float(x) - dd) for x in mqb_items),
                 maxlen=self._mqb.maxlen,
             )
 

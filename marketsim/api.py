@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import threading
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ from .player import Result
 
 # One in-memory game per server process; replace with a store if you add auth / multi-tenant
 _game: Session | None = None
+_step_lock = threading.Lock()
 
 # Cap rows returned in /api/state to keep JSON payloads bounded (full history stays in memory).
 ORDER_LOG_STATE_MAX = 400
@@ -249,24 +251,25 @@ def trend_override(body: dict | None = Body(default=None)) -> Any:
 def step(body: dict | None = Body(default=None)) -> Any:
     b = body or {}
     s = get_game()
-    if b.get("unit") is not None and b.get("n") is not None:
-        n = int(b["n"])
-        unit = str(b["unit"])
-        adv = s.advance_interval(n, unit)
-        st = _state()
-        st["advance"] = {
-            "n": n,
-            "unit": unit,
-            "steps": adv.ticks,
-            "sim_minutes": adv.sim_minutes,
-        }
-        return st
-    n2 = int(b.get("ticks", 1) or 1)
-    n2 = max(1, n2)
-    # Single request cap only to keep the server responsive; re-post to continue.
-    for _ in range(min(n2, 100_000_000)):
-        s.step()
-    return _state()
+    with _step_lock:
+        if b.get("unit") is not None and b.get("n") is not None:
+            n = int(b["n"])
+            unit = str(b["unit"])
+            adv = s.advance_interval(n, unit)
+            st = _state()
+            st["advance"] = {
+                "n": n,
+                "unit": unit,
+                "steps": adv.ticks,
+                "sim_minutes": adv.sim_minutes,
+            }
+            return st
+        n2 = int(b.get("ticks", 1) or 1)
+        n2 = max(1, n2)
+        # Single request cap only to keep the server responsive; re-post to continue.
+        for _ in range(min(n2, 100_000_000)):
+            s.step()
+        return _state()
 
 
 @app.post("/api/order", response_class=JSONResponse)
