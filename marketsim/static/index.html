@@ -291,6 +291,11 @@
     .port-holdings .side-sell { color: var(--sell); }
     .port-holdings td.last-fill { font-size: 0.65rem; line-height: 1.3; text-align: left; max-width: 10rem; white-space: normal; }
     .port-empty { color: var(--text-dim); font-size: 0.85rem; }
+    .star-btn { border: 0; background: transparent; color: var(--text-dim); cursor: pointer; padding: 0; font-size: 0.85rem; }
+    .star-btn.on { color: var(--warn); }
+    .preset-btn { padding: 0.2rem 0.45rem; font-size: 0.72rem; }
+    body.compact td { padding: 0.2rem 0.3rem; font-size: 0.72rem; }
+    body.compact th { padding: 0.25rem 0.3rem; font-size: 0.6rem; }
 
     #msg {
       min-height: 1.2rem; font-size: 0.8rem; margin: 0.25rem 0 0 0; font-family: var(--mono);
@@ -489,6 +494,30 @@
       <section class="col-main">
         <div class="panel" style="padding-bottom:0">
           <h2 style="margin-bottom:0.4rem">Watchlist</h2>
+          <div class="row" style="margin-bottom:0.4rem; align-items:center; gap:0.5rem">
+            <label class="fld">Filter
+              <select id="watchKindFilter">
+                <option value="all">all</option>
+                <option value="stock">stocks</option>
+                <option value="fund">funds</option>
+                <option value="crypto">crypto</option>
+              </select>
+            </label>
+            <label class="fld" style="flex-direction:row;align-items:center;gap:0.3rem;margin:0">
+              <input type="checkbox" id="watchHeldOnly" />
+              <span>held only</span>
+            </label>
+            <label class="fld" style="flex-direction:row;align-items:center;gap:0.3rem;margin:0">
+              <input type="checkbox" id="watchFavFirst" />
+              <span>favorites first</span>
+            </label>
+            <label class="fld">Density
+              <select id="tableDensity">
+                <option value="normal">normal</option>
+                <option value="compact">compact</option>
+              </select>
+            </label>
+          </div>
           <p class="meta-line" style="margin:0 0 0.45rem 0">Click a symbol row (or a position) to open the live candlestick chart.</p>
         </div>
         <div class="table-wrap">
@@ -530,6 +559,15 @@
               <input id="lprice" type="number" value="" min="0" step="0.0001" />
             </label>
           </div>
+          <div class="row" style="margin-bottom:0.35rem;align-items:center;gap:0.35rem">
+            <button type="button" class="preset-btn" data-preset="1">+1</button>
+            <button type="button" class="preset-btn" data-preset="10">+10</button>
+            <button type="button" class="preset-btn" data-preset="100">+100</button>
+            <button type="button" class="preset-btn" data-preset="cash25">25% cash</button>
+            <button type="button" class="preset-btn" data-preset="cash50">50% cash</button>
+            <button type="button" class="preset-btn" data-preset="all">all cash</button>
+          </div>
+          <p id="orderHint" class="meta-line" style="margin:0 0 0.35rem 0; font-size:0.68rem; min-height:1em"></p>
           <div class="row" id="buySizingRow" style="font-size:0.72rem; color: var(--text-dim); margin-bottom:0.5rem; align-items:center; gap:0.65rem; flex-wrap:wrap">
             <span style="color:var(--text-dim)">Buy sizing</span>
             <label class="fld" style="flex-direction:row; align-items:center; gap:0.3rem; margin:0">
@@ -550,7 +588,13 @@
             <button class="order-btn sell" type="button" id="bSell">Market sell</button>
             <button class="order-btn buy span2" type="button" id="bLb" style="opacity:0.95">Limit buy</button>
             <button class="order-btn sell span2" type="button" id="bLs" style="opacity:0.95">Limit sell</button>
+            <button class="order-btn span2" type="button" id="bFlattenAll">Flatten all</button>
           </div>
+          <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.35rem;cursor:pointer;margin-top:0.45rem">
+            <input type="checkbox" id="cbConfirmLarge" checked />
+            <span>Confirm large orders over $<input id="confirmNotional" type="number" min="1000" step="1000" value="250000" style="width:7.2rem; margin-left:0.25rem" /></span>
+          </label>
+          <p class="meta-line" style="margin:0.3rem 0 0; font-size:0.65rem">Hotkeys: B/S market buy/sell, L limit buy, K limit sell, N next tick, 1/5/0 = +1/+5/+50, F flatten all.</p>
           <details class="order-log-panel" id="orderLogPanel" open style="margin:0.55rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
             <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Order history &amp; audit</summary>
             <p class="meta-line" style="margin:0.35rem 0 0.25rem; font-size:0.68rem">Fills, fees, rejects, splits, cash dividends, and buybacks (newest first).</p>
@@ -629,13 +673,22 @@
         <div class="chart-tabs" role="tablist" aria-label="Chart series">
           <button type="button" class="chart-tab active" id="chartTabPrice" data-mode="price" role="tab" aria-selected="true">Price</button>
           <button type="button" class="chart-tab" id="chartTabMcap" data-mode="mcap" role="tab" aria-selected="false">Mcap</button>
+          <button type="button" class="chart-tab" id="chartTabStats" data-mode="stats" role="tab" aria-selected="false">Stats</button>
         </div>
+        <label>Open view
+          <select id="chartDefaultMode" style="font-size:0.72rem">
+            <option value="price">price</option>
+            <option value="mcap">mcap</option>
+            <option value="stats">stats</option>
+          </select>
+        </label>
         <label>Tick / candle <input id="chartBucket" type="number" min="1" max="80" value="4" style="width:3.2rem" title="How many sim ticks to aggregate per candle" /></label>
         <span id="chartMeta" style="font-family:var(--mono)"></span>
       </div>
       <div class="chart-canvas-wrap" id="chartCanvasWrap">
         <div id="chartOhlcHud" class="chart-ohlc-hud" aria-live="polite" hidden>—</div>
         <div id="chartContainer"></div>
+        <div id="chartStats" style="display:none; padding:0.7rem 0.85rem; font-family:var(--mono); font-size:0.76rem; line-height:1.45"></div>
       </div>
     </div>
   </div>
@@ -714,7 +767,7 @@
         return;
       }
       const byT = new Map(s.instruments.map((x) => [x.ticker, x]));
-      let html = '<table class="port-holdings"><thead><tr><th>Sym</th><th>Qty</th><th>Avg $</th><th>Mark</th><th>Cost $</th><th>MV $</th><th>Unreal $</th><th>Unreal %</th><th>Last fill</th></tr></thead><tbody>';
+      let html = '<table class="port-holdings"><thead><tr><th>Sym</th><th>Qty</th><th>Avg $</th><th>Mark</th><th>Cost $</th><th>MV $</th><th>Unreal $</th><th>Unreal %</th><th>Last fill</th><th>Action</th></tr></thead><tbody>';
       h.forEach((r) => {
         const pct = r.unrealized_pct != null && isFinite(+r.unrealized_pct)
           ? ((+r.unrealized_pct) >= 0 ? "+" : "") + (+r.unrealized_pct).toFixed(2) + "%" : "—";
@@ -743,7 +796,8 @@
           "<td>" + (r.market_value_usd != null ? (+r.market_value_usd).toFixed(2) : "—") + "</td>" +
           '<td class="' + ucls + '">' + unreal + "</td>" +
           "<td>" + pct + "</td>" +
-          '<td class="last-fill">' + lastCol + "</td></tr>";
+          '<td class="last-fill">' + lastCol + "</td>" +
+          '<td><button type="button" class="preset-btn" data-flatten="' + r.ticker + '">flatten</button></td></tr>';
       });
       html += "</tbody></table>";
       inner.innerHTML = html;
@@ -831,7 +885,47 @@
         showMsg(String(e), false);
       }
     }
+    const PREF_KEY = "marketsim.ui.prefs.v1";
     let lastState = null;
+    let favoriteSet = new Set();
+    let stickyTicker = "";
+    function loadPrefs() {
+      try {
+        const raw = localStorage.getItem(PREF_KEY);
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        if (p && Array.isArray(p.favorites)) favoriteSet = new Set(p.favorites.map(String));
+        if (p && typeof p.stickyTicker === "string") stickyTicker = p.stickyTicker.toUpperCase();
+        if ($("watchKindFilter") && p.watchKindFilter) $("watchKindFilter").value = p.watchKindFilter;
+        if ($("watchHeldOnly")) $("watchHeldOnly").checked = !!p.watchHeldOnly;
+        if ($("watchFavFirst")) $("watchFavFirst").checked = !!p.watchFavFirst;
+        if ($("tableDensity") && p.tableDensity) $("tableDensity").value = p.tableDensity;
+        if ($("cbConfirmLarge")) $("cbConfirmLarge").checked = p.cbConfirmLarge !== false;
+        if ($("confirmNotional") && isFinite(+p.confirmNotional)) $("confirmNotional").value = String(+p.confirmNotional);
+        if ($("resetMode") && p.resetMode) $("resetMode").value = p.resetMode;
+        if ($("chartDefaultMode") && p.chartDefaultMode) $("chartDefaultMode").value = p.chartDefaultMode;
+        if ($("orderLogPanel")) $("orderLogPanel").open = p.orderLogOpen !== false;
+        if ($("portPanel")) $("portPanel").open = p.portPanelOpen !== false;
+      } catch (e) { /* ignore */ }
+    }
+    function savePrefs() {
+      try {
+        localStorage.setItem(PREF_KEY, JSON.stringify({
+          favorites: Array.from(favoriteSet),
+          stickyTicker: stickyTicker || ($("ticker") ? $("ticker").value : ""),
+          watchKindFilter: $("watchKindFilter") ? $("watchKindFilter").value : "all",
+          watchHeldOnly: $("watchHeldOnly") ? !!$("watchHeldOnly").checked : false,
+          watchFavFirst: $("watchFavFirst") ? !!$("watchFavFirst").checked : false,
+          tableDensity: $("tableDensity") ? $("tableDensity").value : "normal",
+          cbConfirmLarge: $("cbConfirmLarge") ? !!$("cbConfirmLarge").checked : true,
+          confirmNotional: $("confirmNotional") ? +$("confirmNotional").value || 250000 : 250000,
+          resetMode: $("resetMode") ? $("resetMode").value : "simple",
+          chartDefaultMode: $("chartDefaultMode") ? $("chartDefaultMode").value : "price",
+          orderLogOpen: $("orderLogPanel") ? !!$("orderLogPanel").open : true,
+          portPanelOpen: $("portPanel") ? !!$("portPanel").open : true,
+        }));
+      } catch (e) { /* ignore */ }
+    }
     let _trendInstrKey = "";
     let _trendPostTimer = null;
     let _volPostTimer = null;
@@ -956,7 +1050,24 @@
     function renderWatchTable(s) {
       const tb = $("tbl");
       tb.innerHTML = "";
-      sortInstruments(s.instruments).forEach((x) => {
+      const held = new Set(Object.keys((s.player && s.player.positions) ? s.player.positions : {}).filter((k) => Math.abs(+s.player.positions[k]) > 1e-8));
+      const kindFilter = $("watchKindFilter") ? $("watchKindFilter").value : "all";
+      const heldOnly = $("watchHeldOnly") ? !!$("watchHeldOnly").checked : false;
+      const favFirst = $("watchFavFirst") ? !!$("watchFavFirst").checked : false;
+      let arr = sortInstruments(s.instruments).filter((x) => {
+        if (kindFilter !== "all" && x.kind !== kindFilter) return false;
+        if (heldOnly && !held.has(String(x.ticker))) return false;
+        return true;
+      });
+      if (favFirst) {
+        arr = arr.slice().sort((a, b) => {
+          const af = favoriteSet.has(String(a.ticker)) ? 1 : 0;
+          const bf = favoriteSet.has(String(b.ticker)) ? 1 : 0;
+          if (af !== bf) return bf - af;
+          return 0;
+        });
+      }
+      arr.forEach((x) => {
         const tr = document.createElement("tr");
         tr.setAttribute("data-ticker", x.ticker);
         tr.className = "watchlist-row";
@@ -975,7 +1086,7 @@
         const askL = fmtVolSh(x.ask_liquidity);
         tr.innerHTML =
           '<td class="' + kindClass(x.kind) + '">' + x.kind + "</td>" +
-          "<td><b>" + x.ticker + "</b></td>" +
+          "<td><button type=\"button\" class=\"star-btn " + (favoriteSet.has(String(x.ticker)) ? "on" : "") + "\" data-star=\"" + x.ticker + "\" title=\"Toggle favorite\">★</button> <b>" + x.ticker + "</b></td>" +
           '<td style="font-size:0.72rem" title="' + escHtml(String(x.sector || "")) + '">' + escHtml(ssec) + "</td>" +
           '<td class="' + kindClass(x.kind) + '">' + mcv + "</td>" +
           "<td>" + fmt(x.quote.bid, 4) + "</td>" +
@@ -1124,7 +1235,7 @@
       $("lca").textContent = p.locked_cash.toFixed(2);
       $("eq").textContent = p.equity.toFixed(2);
       const sel = $("ticker");
-      const current = sel.value;
+      const current = (sel && sel.value) ? sel.value : stickyTicker;
       sel.innerHTML = "";
       const tickList = s.instruments.slice().sort(function (a, b) {
         return String(a.ticker).localeCompare(String(b.ticker), undefined, { sensitivity: "base" });
@@ -1139,6 +1250,18 @@
         if (!current || !tickList.some((x) => x.ticker === current)) {
           sel.value = tickList[0].ticker;
         } else { sel.value = current; }
+      }
+      stickyTicker = sel.value || stickyTicker;
+      if ($("tableDensity")) {
+        document.body.classList.toggle("compact", $("tableDensity").value === "compact");
+      }
+      const curIns = tickList.find((x) => x.ticker === sel.value) || null;
+      if ($("orderHint")) {
+        if (curIns && curIns.execution_rules) {
+          $("orderHint").textContent = "Rule: lot step " + curIns.execution_rules.lot_step + " · tick size " + curIns.execution_rules.tick_size;
+        } else {
+          $("orderHint").textContent = "";
+        }
       }
       renderWatchTable(s);
       renderPortHoldings(s);
@@ -1171,6 +1294,7 @@
     }
     let chartW = null;
     let series = null;
+    let volSeries = null;
     let chartOpenTk = null;
     let chartViewMode = "price";
     let lastChartCandles = [];
@@ -1184,6 +1308,7 @@
     function setChartTabUI() {
       const p = $("chartTabPrice");
       const m = $("chartTabMcap");
+      const s = $("chartTabStats");
       if (p) {
         p.classList.toggle("active", chartViewMode === "price");
         p.setAttribute("aria-selected", chartViewMode === "price" ? "true" : "false");
@@ -1192,6 +1317,12 @@
         m.classList.toggle("active", chartViewMode === "mcap");
         m.setAttribute("aria-selected", chartViewMode === "mcap" ? "true" : "false");
       }
+      if (s) {
+        s.classList.toggle("active", chartViewMode === "stats");
+        s.setAttribute("aria-selected", chartViewMode === "stats" ? "true" : "false");
+      }
+      if ($("chartContainer")) $("chartContainer").style.display = chartViewMode === "stats" ? "none" : "block";
+      if ($("chartStats")) $("chartStats").style.display = chartViewMode === "stats" ? "block" : "none";
     }
     function updateChartMcapTabEnabled() {
       const m = $("chartTabMcap");
@@ -1203,9 +1334,9 @@
         chartW = null;
       }
       series = null;
+      volSeries = null;
       lastChartCandles = [];
       lastChartCandlesMcap = [];
-      chartViewMode = "price";
     }
     function ohlcBarEndSimTick(c) {
       if (!c || c.time == null) return null;
@@ -1268,9 +1399,11 @@
       const st = (d && d.sim_tick != null) ? d.sim_tick : (lastState && lastState.tick != null ? lastState.tick : "\u2014");
       const mcap = chartViewMode === "mcap" && lastChartCandlesMcap && lastChartCandlesMcap.length;
       if ($("chartMeta")) {
-        $("chartMeta").textContent = mcap
+        $("chartMeta").textContent = chartViewMode === "stats"
+          ? "Sim tick " + st + "  \u00b7  instrument stats"
+          : (mcap
           ? "Sim tick " + st + "  \u00b7  " + n + " bars (mkt cap, USD  ·  mid \u00d7 float)"
-          : "Sim tick " + st + "  \u00b7  " + n + " bars (listed mid)";
+          : "Sim tick " + st + "  \u00b7  " + n + " bars (listed mid)");
       }
     }
     function applyChartPriceFormat() {
@@ -1310,21 +1443,52 @@
       }
     }
     function applyActiveChartData(d) {
+      if (chartViewMode === "stats") {
+        renderChartStats();
+        if (d) chartMetaLine(d);
+        return;
+      }
       if (!series || !chartW) return;
       const mcap = chartViewMode === "mcap" && lastChartCandlesMcap && lastChartCandlesMcap.length;
       const data = mcap ? lastChartCandlesMcap : lastChartCandles;
       if (!data || !data.length) return;
       applyChartPriceFormat();
       series.setData(data);
+      if (volSeries) {
+        volSeries.setData(
+          data.map((c) => ({
+            time: c.time,
+            value: isFinite(+c.volume) ? +c.volume : 0.0,
+            color: (+c.close >= +c.open) ? "rgba(62,207,142,0.45)" : "rgba(240,113,120,0.45)",
+          }))
+        );
+      }
       chartW.timeScale().fitContent();
       if (d) { chartMetaLine(d); }
       updateChartOhlcHudFromCandle(data[data.length - 1], mcap);
+    }
+    function renderChartStats() {
+      if (!chartOpenTk || !$("chartStats") || !lastState || !lastState.instruments) return;
+      const ins = lastState.instruments.find((x) => String(x.ticker) === String(chartOpenTk));
+      if (!ins) { $("chartStats").textContent = "No stats."; return; }
+      const q = ins.quote || {};
+      const out = [
+        "Ticker: " + ins.ticker + " (" + ins.kind + ")",
+        "Sector: " + (ins.sector || "—"),
+        "Mcap: " + fmtMcap(ins.marketcap),
+        "Supply: " + fmtQty(ins.units_outstanding),
+        "24h %: " + fmtPct24(ins.pct_24h),
+        "Volume: " + fmtVolSh(ins.cumulative_volume),
+        "Bid / Mid / Ask: " + fmt(q.bid, 4) + " / " + fmt(q.mid, 4) + " / " + fmt(q.ask, 4),
+      ];
+      $("chartStats").innerHTML = out.map((x) => "<div>" + escHtml(x) + "</div>").join("");
     }
     function onChartTab(mode) {
       if (mode === "mcap" && (!lastChartCandlesMcap || !lastChartCandlesMcap.length)) return;
       chartViewMode = mode;
       setChartTabUI();
       applyActiveChartData({ candles: lastChartCandles, sim_tick: (lastState && lastState.tick != null) ? lastState.tick : null });
+      savePrefs();
     }
     async function loadAndDrawChart() {
       const tk = chartOpenTk;
@@ -1375,6 +1539,16 @@
           wickUpColor: "#3ecf8e",
           wickDownColor: "#f07178",
         });
+        volSeries = chartW.addHistogramSeries({
+          priceFormat: { type: "volume" },
+          priceScaleId: "",
+        });
+        chartW.priceScale("").applyOptions({
+          scaleMargins: { top: 0.78, bottom: 0.0 },
+        });
+        chartW.priceScale("right").applyOptions({
+          scaleMargins: { top: 0.05, bottom: 0.24 },
+        });
         chartW.subscribeCrosshairMove((param) => {
           if (!series) return;
           const isM = chartViewMode === "mcap" && lastChartCandlesMcap && lastChartCandlesMcap.length;
@@ -1405,12 +1579,13 @@
       if (series) {
         applyActiveChartData(d);
       }
+      renderChartStats();
     }
     function openChart(ticker) {
       const tk = String(ticker).trim().toUpperCase();
       if (!tk) return;
       chartOpenTk = tk;
-      chartViewMode = "price";
+      chartViewMode = ($("chartDefaultMode") && $("chartDefaultMode").value) || "price";
       setChartTabUI();
       const m = $("chartModal");
       if (m) {
@@ -1419,6 +1594,7 @@
       }
       destroyCandleChart();
       if ($("chartContainer")) $("chartContainer").innerHTML = "";
+      if ($("chartStats")) $("chartStats").innerHTML = "";
       setChartTabUI();
       updateChartMcapTabEnabled();
       loadAndDrawChart().catch((e) => showMsg(String(e), false));
@@ -1513,6 +1689,33 @@
       if (el) el.addEventListener("change", syncBuySizingUI);
     });
     syncBuySizingUI();
+    function applyPreset(v) {
+      if (v === "all") {
+        if ($("sizingCash")) $("sizingCash").checked = true;
+        if ($("allCash")) $("allCash").checked = true;
+        syncBuySizingUI();
+        return;
+      }
+      if (v === "cash25" || v === "cash50") {
+        const frac = v === "cash25" ? 0.25 : 0.5;
+        const cash = lastState && lastState.player ? (+lastState.player.cash || 0) : 0;
+        if ($("sizingCash")) $("sizingCash").checked = true;
+        if ($("allCash")) $("allCash").checked = false;
+        $("size").value = String((cash * frac).toFixed(2));
+        syncBuySizingUI();
+        return;
+      }
+      const n = +v;
+      if (isFinite(n) && n > 0) {
+        if ($("sizingSh")) $("sizingSh").checked = true;
+        if ($("allCash")) $("allCash").checked = false;
+        $("size").value = String(n);
+        syncBuySizingUI();
+      }
+    }
+    document.querySelectorAll("button[data-preset]").forEach((b) => {
+      b.addEventListener("click", () => applyPreset(b.getAttribute("data-preset")));
+    });
     const wthead = document.querySelector("#watchTable thead");
     if (wthead) {
       wthead.addEventListener("click", (e) => {
@@ -1530,6 +1733,21 @@
       showMsg("ok", true);
     }
     async function doOrder(body) {
+      const askConfirm = $("cbConfirmLarge") && $("cbConfirmLarge").checked;
+      const lim = +($("confirmNotional") && $("confirmNotional").value != null ? $("confirmNotional").value : 250000);
+      if (askConfirm && isFinite(lim) && lim > 0) {
+        const tk = body && body.ticker ? String(body.ticker) : "";
+        const ins = lastState && lastState.instruments ? lastState.instruments.find((x) => x.ticker === tk) : null;
+        const q = ins && ins.quote ? ins.quote.mid : null;
+        let est = 0;
+        if (body.notional != null) est = Math.abs(+body.notional);
+        else if (body.all_cash) est = lastState && lastState.player ? Math.max(0, +lastState.player.cash || 0) : 0;
+        else if (body.size != null && q != null && isFinite(+body.size) && isFinite(+q)) est = Math.abs(+body.size) * Math.abs(+q);
+        if (est >= lim) {
+          const ok = window.confirm("Submit large order est $" + est.toFixed(2) + "?");
+          if (!ok) return;
+        }
+      }
       const r = await j("/api/order", { method: "POST", body: JSON.stringify(body) });
       if (r.ok) {
         showMsg("Filled / accepted", true);
@@ -1537,6 +1755,13 @@
         showMsg(r.error || r.order_result || "rejected", false);
       }
       await refresh();
+    }
+    async function doFlatten(ticker) {
+      const body = ticker ? { ticker: String(ticker).toUpperCase() } : {};
+      const r = await j("/api/flatten", { method: "POST", body: JSON.stringify(body) });
+      lastState = r;
+      paintState(r);
+      showMsg(ticker ? ("Flattened " + ticker) : "Flattened positions", true);
     }
     async function applyStartingCash() {
       const scEl = $("startingCash");
@@ -1581,6 +1806,7 @@
       });
       await refresh();
       showMsg("New session", true);
+      savePrefs();
     }
     $("bt").onclick = () => doStep(1);
     $("b5").onclick = () => doStep(5);
@@ -1622,12 +1848,38 @@
     }
     if ($("tbl")) {
       $("tbl").addEventListener("click", (e) => {
+        const sb = e.target.closest("button[data-star]");
+        if (sb) {
+          const tk = sb.getAttribute("data-star");
+          if (favoriteSet.has(tk)) favoriteSet.delete(tk); else favoriteSet.add(tk);
+          savePrefs();
+          if (lastState) renderWatchTable(lastState);
+          e.stopPropagation();
+          return;
+        }
+        const tr = e.target.closest("tr[data-ticker]");
+        if (tr) {
+          const tk = tr.getAttribute("data-ticker");
+          if ($("ticker")) $("ticker").value = tk;
+          stickyTicker = tk || stickyTicker;
+          savePrefs();
+          if (lastState) paintState(lastState);
+        }
+      });
+      $("tbl").addEventListener("dblclick", (e) => {
         const tr = e.target.closest("tr[data-ticker]");
         if (tr) openChart(tr.getAttribute("data-ticker"));
       });
     }
     if ($("portHoldingsInner")) {
       $("portHoldingsInner").addEventListener("click", (e) => {
+        const fb = e.target.closest("button[data-flatten]");
+        if (fb) {
+          const tk = fb.getAttribute("data-flatten");
+          doFlatten(tk).catch((err) => showMsg(String(err), false));
+          e.stopPropagation();
+          return;
+        }
         const tr = e.target.closest("tr.port-row-click[data-ticker]");
         if (tr) openChart(tr.getAttribute("data-ticker"));
       });
@@ -1664,6 +1916,34 @@
     if ($("bBbGo")) $("bBbGo").onclick = () => { postStockBuyback().catch((e) => showMsg(String(e), false)); };
     if ($("chartTabPrice")) $("chartTabPrice").onclick = function () { onChartTab("price"); };
     if ($("chartTabMcap")) $("chartTabMcap").onclick = function () { onChartTab("mcap"); };
+    if ($("chartTabStats")) $("chartTabStats").onclick = function () { onChartTab("stats"); };
+    if ($("bFlattenAll")) $("bFlattenAll").onclick = () => doFlatten(null).catch((e) => showMsg(String(e), false));
+    if ($("ticker")) $("ticker").addEventListener("change", () => { stickyTicker = $("ticker").value; savePrefs(); if (lastState) paintState(lastState); });
+    ["watchKindFilter","watchHeldOnly","watchFavFirst","tableDensity","cbConfirmLarge","confirmNotional","resetMode","chartDefaultMode"].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener("change", () => { savePrefs(); if (lastState && (id === "watchKindFilter" || id === "watchHeldOnly" || id === "watchFavFirst" || id === "tableDensity")) paintState(lastState); });
+    });
+    ["orderLogPanel","portPanel"].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener("toggle", savePrefs);
+    });
+    document.addEventListener("keydown", (e) => {
+      const t = e.target;
+      const inEdit = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
+      if (inEdit) return;
+      const k = String(e.key || "").toLowerCase();
+      if (k === "b") { e.preventDefault(); doOrder(bodyBuyMkt()).catch((err) => showMsg(String(err), false)); }
+      else if (k === "s") { e.preventDefault(); doOrder(sideBody({ type: "market", side: "sell" })).catch((err) => showMsg(String(err), false)); }
+      else if (k === "l") { e.preventDefault(); doOrder(bodyBuyLimit()).catch((err) => showMsg(String(err), false)); }
+      else if (k === "k") { e.preventDefault(); doOrder(sideBody({ type: "limit", side: "sell", price: +$("lprice").value || 0 })).catch((err) => showMsg(String(err), false)); }
+      else if (k === "n") { e.preventDefault(); doStep(1).catch((err) => showMsg(String(err), false)); }
+      else if (k === "1") { e.preventDefault(); doStep(1).catch((err) => showMsg(String(err), false)); }
+      else if (k === "5") { e.preventDefault(); doStep(5).catch((err) => showMsg(String(err), false)); }
+      else if (k === "0") { e.preventDefault(); doStep(50).catch((err) => showMsg(String(err), false)); }
+      else if (k === "f") { e.preventDefault(); doFlatten(null).catch((err) => showMsg(String(err), false)); }
+    });
+    loadPrefs();
+    savePrefs();
     refresh().catch((e) => showMsg(String(e), false));
   })();
   </script>

@@ -84,6 +84,8 @@ class Market:
     # For candlestick / chart: *(sim_tick, mid)* (listed quote mid) after each *step()*; unbounded
     # for the session (long runs can use a lot of memory).
     _chart_hist: list[deque[tuple[int, float]]] = field(default_factory=list, init=False, repr=False)
+    _vol_hist: list[deque[tuple[int, float]]] = field(default_factory=list, init=False, repr=False)
+    _vol_snapshot: np.ndarray = field(init=False, repr=False)
     # Great depression: one random crash in [500,1000], then *recovery* ticks pull prices toward 99% of pre
     # for ~99% of names; the rest (≈1%) stay impaired.
     _gd_armed: bool = field(default=False, init=False, repr=False)
@@ -169,6 +171,7 @@ class Market:
         self._mid_hist = [deque(maxlen=w + 1) for _ in range(n)]
         self._append_ch24_history()
         self._chart_hist = [deque() for _ in range(n)]
+        self._vol_hist = [deque() for _ in range(n)]
         self._seed_chart_history()
         self._tape_ema = np.zeros(n, dtype=np.float64)
         self._flow_bump = np.zeros(n, dtype=np.float64)
@@ -190,6 +193,7 @@ class Market:
         self._headline_vol_addon = np.zeros(n, dtype=np.float64)
         self._news = deque(maxlen=40)
         self._cumulative_volume = np.zeros(n, dtype=np.float64)
+        self._vol_snapshot = self._cumulative_volume.copy()
         self._financing_long_bps = np.zeros(n, dtype=np.float64)
         self._financing_short_bps = np.zeros(n, dtype=np.float64)
 
@@ -625,12 +629,16 @@ class Market:
         for k in range(len(self.instruments)):
             _, mid, _ = self.quote(k)
             self._chart_hist[k].append((t, float(mid)))
+            self._vol_hist[k].append((t, 0.0))
 
     def _append_chart_row(self) -> None:
         t = int(self._tick)
         for k in range(len(self.instruments)):
             _, mid, _ = self.quote(k)
             self._chart_hist[k].append((t, float(mid)))
+            dv = max(0.0, float(self._cumulative_volume[k] - self._vol_snapshot[k]))
+            self._vol_hist[k].append((t, dv))
+            self._vol_snapshot[k] = float(self._cumulative_volume[k])
 
     def chart_ohlc(
         self,
@@ -649,6 +657,7 @@ class Market:
         if not dq:
             return []
         pts = list(dq)
+        vols = list(self._vol_hist[i]) if 0 <= i < len(self._vol_hist) else []
         b = max(1, int(bucket))
         out: list[dict[str, int | float]] = []
         j = 0
@@ -660,6 +669,8 @@ class Market:
             mids = [p[1] for p in seg]
             t_end = int(seg[-1][0])
             o, h, lo, c = float(mids[0]), float(max(mids)), float(min(mids)), float(mids[-1])
+            vseg = vols[j : j + b] if vols else []
+            v = float(sum(float(x[1]) for x in vseg)) if vseg else 0.0
             out.append(
                 {
                     "time": 1_000_000_000 + t_end,
@@ -667,6 +678,7 @@ class Market:
                     "high": h,
                     "low": lo,
                     "close": c,
+                    "volume": v,
                 }
             )
         if not out:

@@ -333,6 +333,37 @@ def post_order(body: dict = Body(...)) -> Any:
     return st
 
 
+@app.post("/api/flatten", response_class=JSONResponse)
+def post_flatten(body: dict | None = Body(default=None)) -> Any:
+    """Flatten one ticker or all open positions via market orders."""
+
+    b = body or {}
+    s = get_game()
+    mkt = s.market
+    t_raw = str(b.get("ticker", "") or "").strip().upper()
+    only = [t_raw] if t_raw else [str(t) for t, q in s.player.positions.items() if abs(float(q)) >= MIN_LOT]
+    results: list[dict[str, Any]] = []
+    for t in only:
+        q = float(s.player.positions.get(t, 0.0))
+        if abs(q) < MIN_LOT:
+            continue
+        side = Side.SELL if q > 0.0 else Side.BUY
+        r = s.order_market(t, side, abs(q))
+        results.append({"ticker": t, "side": "sell" if side is Side.SELL else "buy", "qty": abs(q), "result": r.value})
+        if r is not Result.OK:
+            s.player.log_reject(
+                sim_tick=int(mkt.tick),
+                ticker=t,
+                order_type="market",
+                side="sell" if side is Side.SELL else "buy",
+                result=str(r.value),
+                message=_result_msg(r),
+            )
+    st = _state()
+    st["flatten"] = {"requested": ("one" if t_raw else "all"), "results": results}
+    return st
+
+
 @app.post("/api/stock_split", response_class=JSONResponse)
 def post_stock_split(body: dict = Body(...)) -> Any:
     """Manual forward stock split (N:1) for a chosen ticker; 2 ≤ N ≤ 100. Stocks only."""
@@ -598,6 +629,7 @@ def chart_series(
                 "high": float(c["high"]) * u,
                 "low": float(c["low"]) * u,
                 "close": float(c["close"]) * u,
+                "volume": float(c.get("volume", 0.0)),
             }
             for c in candles
         ]
