@@ -271,6 +271,26 @@
       transition: transform 0.12s;
     }
     .port-panel[open] > summary::before { transform: rotate(90deg); }
+    /* Overlay-only details: sidebar shows summary row only; body is shown in the info modal when opened. */
+    details.details-overlay-only > :not(summary) {
+      display: none !important;
+    }
+    details.details-overlay-only > summary {
+      list-style: none;
+      cursor: pointer;
+    }
+    details.details-overlay-only > summary::-webkit-details-marker { display: none; }
+    details.details-overlay-only.order-log-panel > summary::before,
+    details.details-overlay-only.debug > summary::before,
+    details.details-overlay-only.split-panel > summary::before,
+    details.details-overlay-only.corp-panel > summary::before {
+      content: "▶";
+      display: inline-block;
+      font-size: 0.5rem;
+      margin-right: 0.4rem;
+      transform: translateY(-0.05em);
+      color: var(--text-dim);
+    }
     .order-log-wrap {
       max-height: 11rem;
       overflow: auto;
@@ -658,7 +678,7 @@
             <span>Confirm large orders over $<input id="confirmNotional" type="number" min="1000" step="1000" value="250000" style="width:7.2rem; margin-left:0.25rem" /></span>
           </label>
           <p class="meta-line" style="margin:0.3rem 0 0; font-size:0.65rem">Hotkeys: B/S market buy/sell, L limit buy, K limit sell, N next tick, 1/5/0 = +1/+5/+50, F flatten all.</p>
-          <details class="order-log-panel" id="orderLogPanel" open style="margin:0.55rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
+          <details class="order-log-panel details-overlay-only" id="orderLogPanel" style="margin:0.55rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
             <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Order history &amp; audit</summary>
             <p class="meta-line" style="margin:0.35rem 0 0.25rem; font-size:0.68rem">Fills, fees, rejects, splits, cash dividends, and buybacks (newest first).</p>
             <div class="order-log-wrap">
@@ -677,49 +697,51 @@
               </table>
             </div>
           </details>
-          <details class="split-panel" style="margin:0.65rem 0 0; padding-top:0.5rem; border-top:1px solid var(--border)">
+          <details class="split-panel details-overlay-only" id="splitStockPanel" style="margin:0.65rem 0 0; padding-top:0.5rem; border-top:1px solid var(--border)">
             <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Manual stock split</summary>
-            <p class="meta-line" style="margin:0.4rem 0 0.35rem; font-size:0.72rem">Uses the symbol selected in the ticket. Forward N:1 only (price ÷N, float shares ×N). Stocks only — not funds or crypto.</p>
-            <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.2rem">
-              <button type="button" id="bSp2" title="2:1 forward">2:1</button>
-              <button type="button" id="bSp3" title="3:1 forward">3:1</button>
-              <label class="fld" style="margin:0; min-width:4.8rem"><span style="font-size:0.65rem">N (2–100)</span>
-                <input id="splitN" type="number" min="2" max="100" value="2" step="1" style="width:4.2rem" title="Forward split N:1" />
-              </label>
-              <button type="button" class="primary" id="bSplitGo">Apply split</button>
+            <div id="splitStockPanelInner">
+              <p class="meta-line" style="margin:0.4rem 0 0.35rem; font-size:0.72rem">Uses the symbol selected in the ticket. Forward N:1 only (price ÷N, float shares ×N). Stocks only — not funds or crypto.</p>
+              <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.2rem">
+                <button type="button" id="bSp2" title="2:1 forward">2:1</button>
+                <button type="button" id="bSp3" title="3:1 forward">3:1</button>
+                <label class="fld" style="margin:0; min-width:4.8rem"><span style="font-size:0.65rem">N (2–100)</span>
+                  <input id="splitN" type="number" min="2" max="100" value="2" step="1" style="width:4.2rem" title="Forward split N:1" />
+                </label>
+                <button type="button" class="primary" id="bSplitGo">Apply split</button>
+              </div>
             </div>
           </details>
-          <details class="corp-panel" style="margin:0.65rem 0 0; padding-top:0.5rem; border-top:1px solid var(--border)">
+          <details class="corp-panel details-overlay-only" id="corpStockPanel" style="margin:0.65rem 0 0; padding-top:0.5rem; border-top:1px solid var(--border)">
             <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Dividend &amp; buyback (stocks)</summary>
-            <p class="meta-line" style="margin:0.4rem 0 0.35rem; font-size:0.72rem"><b>Dividend</b> — ex-div: cash/sh to holders, spot &amp; CLOB price levels fall by the same. <b>Buyback</b> — float &amp; your shares scale down; mid unchanged, USD cost basis unchanged.</p>
-            <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.2rem">
-              <label class="fld" style="margin:0; min-width:5.5rem"><span style="font-size:0.65rem">USD / sh</span>
-                <input id="divUsd" type="number" min="0" step="0.0001" value="0.5" style="width:5rem" title="Cash dividend per share" />
-              </label>
-              <button type="button" class="primary" id="bDivGo" title="Pay cash dividend (stock in ticket)">Pay dividend</button>
-            </div>
-            <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin:0.45rem 0 0.1rem 0">
-              <label class="fld" style="margin:0; min-width:5.2rem"><span style="font-size:0.65rem">% float retired</span>
-                <input id="bbPct" type="number" min="0.05" max="20" value="1" step="0.05" style="width:4.5rem" title="Percent of total shares repurchased (0.05%–20%)" />
-              </label>
-              <button type="button" id="bBbGo" title="Share buyback (stock in ticket)">Run buyback</button>
+            <div id="corpStockPanelInner">
+              <p class="meta-line" style="margin:0.4rem 0 0.35rem; font-size:0.72rem"><b>Dividend</b> — ex-div: cash/sh to holders, spot &amp; CLOB price levels fall by the same. <b>Buyback</b> — float &amp; your shares scale down; mid unchanged, USD cost basis unchanged.</p>
+              <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.2rem">
+                <label class="fld" style="margin:0; min-width:5.5rem"><span style="font-size:0.65rem">USD / sh</span>
+                  <input id="divUsd" type="number" min="0" step="0.0001" value="0.5" style="width:5rem" title="Cash dividend per share" />
+                </label>
+                <button type="button" class="primary" id="bDivGo" title="Pay cash dividend (stock in ticket)">Pay dividend</button>
+              </div>
+              <div class="row" style="gap:0.35rem; flex-wrap:wrap; align-items:flex-end; margin:0.45rem 0 0.1rem 0">
+                <label class="fld" style="margin:0; min-width:5.2rem"><span style="font-size:0.65rem">% float retired</span>
+                  <input id="bbPct" type="number" min="0.05" max="20" value="1" step="0.05" style="width:4.5rem" title="Percent of total shares repurchased (0.05%–20%)" />
+                </label>
+                <button type="button" id="bBbGo" title="Share buyback (stock in ticket)">Run buyback</button>
+              </div>
             </div>
           </details>
           <p id="msg" class="ok"></p>
           <p class="meta-line" id="metaLine" style="cursor:pointer" title="Click for full session / fees line"></p>
           <p class="meta-line" id="microLine" style="font-size:0.68rem; line-height:1.35; color:var(--text-dim); cursor:pointer" title="Click for full session &amp; microstructure panel"></p>
           <p class="meta-line" id="newsLine" style="font-size:0.68rem; line-height:1.35; color:var(--warn); cursor:pointer" title="Click for full news feed"></p>
-          <details class="debug" id="apiJsonPanel">
-            <summary style="cursor:pointer" title="Opens full JSON panel when expanded">API JSON</summary>
+          <details class="debug details-overlay-only" id="apiJsonPanel">
+            <summary style="cursor:pointer" title="Open full JSON in panel">API JSON</summary>
             <pre id="raw">{}</pre>
           </details>
         </div>
         <div class="panel" style="border-top:1px solid var(--border)">
-          <details class="port-panel" id="portPanel" open>
-            <summary>
-              <span>Positions</span>
-              <span class="port-sum-sub" id="portSummarySub"></span>
-            </summary>
+          <details class="port-panel details-overlay-only" id="portPanel">
+            <summary><span>Positions</span></summary>
+            <span class="port-sum-sub" id="portSummarySub"></span>
             <div class="port-holdings-wrap" id="portHoldingsInner"></div>
           </details>
         </div>
@@ -991,8 +1013,6 @@
         if ($("confirmNotional") && isFinite(+p.confirmNotional)) $("confirmNotional").value = String(+p.confirmNotional);
         if ($("resetMode") && p.resetMode) $("resetMode").value = p.resetMode;
         if ($("chartDefaultMode") && p.chartDefaultMode) $("chartDefaultMode").value = p.chartDefaultMode;
-        if ($("orderLogPanel")) $("orderLogPanel").open = p.orderLogOpen !== false;
-        if ($("portPanel")) $("portPanel").open = p.portPanelOpen !== false;
       } catch (e) { /* ignore */ }
     }
     function savePrefs() {
@@ -1010,8 +1030,6 @@
           confirmNotional: $("confirmNotional") ? +$("confirmNotional").value || 250000 : 250000,
           resetMode: $("resetMode") ? $("resetMode").value : "simple",
           chartDefaultMode: $("chartDefaultMode") ? $("chartDefaultMode").value : "price",
-          orderLogOpen: $("orderLogPanel") ? !!$("orderLogPanel").open : true,
-          portPanelOpen: $("portPanel") ? !!$("portPanel").open : true,
         }));
       } catch (e) { /* ignore */ }
     }
@@ -1295,9 +1313,24 @@
       }
       return bits.join("");
     }
+    function rehomeUnshownStockFormMounts() {
+      const b = $("infoPanelBody");
+      if (!b) return;
+      const splitMount = $("splitStockPanelInner");
+      const splitRoot = $("splitStockPanel");
+      if (splitMount && splitRoot && splitMount.parentElement === b && infoPanelKind !== "split") {
+        splitRoot.appendChild(splitMount);
+      }
+      const corpMount = $("corpStockPanelInner");
+      const corpRoot = $("corpStockPanel");
+      if (corpMount && corpRoot && corpMount.parentElement === b && infoPanelKind !== "divbb") {
+        corpRoot.appendChild(corpMount);
+      }
+    }
     function fillInfoPanelBody(s) {
       const body = $("infoPanelBody");
       if (!body || !infoPanelKind) return;
+      rehomeUnshownStockFormMounts();
       if (infoPanelKind === "orderlog") {
         body.innerHTML =
           '<p class="meta-line" style="margin:0 0 0.5rem">Fills, fees, rejects, splits, dividends, buybacks (newest first).</p>' +
@@ -1317,6 +1350,28 @@
         body.innerHTML = '<p class="meta-line" style="margin:0 0 0.5rem">Simulator headlines (newest first).</p>' + buildNewsPanelHtml(s);
       } else if (infoPanelKind === "micro") {
         body.innerHTML = '<p class="meta-line" style="margin:0 0 0.55rem">Session fees / drift and microstructure (same as footer lines).</p>' + buildMicroPanelFromDom();
+      } else if (infoPanelKind === "split") {
+        const mount = $("splitStockPanelInner");
+        const splitRoot = $("splitStockPanel");
+        if (!mount || !splitRoot) {
+          body.textContent = "";
+          return;
+        }
+        if (mount.parentElement !== body) {
+          body.innerHTML = "";
+          body.appendChild(mount);
+        }
+      } else if (infoPanelKind === "divbb") {
+        const mount = $("corpStockPanelInner");
+        const corpRoot = $("corpStockPanel");
+        if (!mount || !corpRoot) {
+          body.textContent = "";
+          return;
+        }
+        if (mount.parentElement !== body) {
+          body.innerHTML = "";
+          body.appendChild(mount);
+        }
       } else {
         body.textContent = "";
       }
@@ -1325,13 +1380,19 @@
       if (infoPanelKind && s) fillInfoPanelBody(s);
     }
     function closeInfoPanel() {
+      const b = $("infoPanelBody");
+      const splitMount = $("splitStockPanelInner");
+      const splitRoot = $("splitStockPanel");
+      const corpMount = $("corpStockPanelInner");
+      const corpRoot = $("corpStockPanel");
+      if (splitMount && splitRoot && b && splitMount.parentElement === b) splitRoot.appendChild(splitMount);
+      if (corpMount && corpRoot && b && corpMount.parentElement === b) corpRoot.appendChild(corpMount);
       infoPanelKind = null;
       const m = $("infoPanelModal");
       if (m) {
         m.classList.remove("is-open");
         m.setAttribute("aria-hidden", "true");
       }
-      const b = $("infoPanelBody");
       if (b) b.innerHTML = "";
     }
     function openInfoPanel(kind) {
@@ -1341,6 +1402,8 @@
         positions: "Positions",
         news: "News",
         micro: "Session & microstructure",
+        split: "Manual stock split",
+        divbb: "Dividend & buyback (stocks)",
       };
       infoPanelKind = kind;
       const m = $("infoPanelModal");
@@ -2092,46 +2155,21 @@
     if ($("chartClose")) $("chartClose").addEventListener("click", () => closeChart());
     /* No backdrop click-to-close: chart overlay has pointer-events:none; no full-page dim so side panels stay clear. */
     if ($("infoPanelClose")) $("infoPanelClose").addEventListener("click", () => closeInfoPanel());
+    function bindDetailsOverlaySummary(detailEl, kind) {
+      if (!detailEl) return;
+      const sm = detailEl.querySelector("summary");
+      if (!sm) return;
+      sm.addEventListener("click", function (e) {
+        e.preventDefault();
+        openInfoPanel(kind);
+      });
+    }
     function bindInfoPanelAutoOpen() {
-      const ol = $("orderLogPanel");
-      if (ol) {
-        ol.addEventListener("toggle", function () {
-          if (ol.open) openInfoPanel("orderlog");
-          else if (infoPanelKind === "orderlog") closeInfoPanel();
-        });
-        ol.addEventListener("click", function (e) {
-          if (!ol.open) return;
-          if (e.target.closest("summary")) return;
-          openInfoPanel("orderlog");
-        });
-      }
-      const api = $("apiJsonPanel");
-      if (api) {
-        api.addEventListener("toggle", function () {
-          if (api.open) openInfoPanel("api");
-          else if (infoPanelKind === "api") closeInfoPanel();
-        });
-        api.addEventListener("click", function (e) {
-          if (!api.open) return;
-          if (e.target.closest("summary")) return;
-          openInfoPanel("api");
-        });
-      }
-      const pp = $("portPanel");
-      if (pp) {
-        pp.addEventListener("toggle", function () {
-          if (pp.open) openInfoPanel("positions");
-          else if (infoPanelKind === "positions") closeInfoPanel();
-        });
-      }
-      const phi = $("portHoldingsInner");
-      if (phi) {
-        phi.addEventListener("click", function (e) {
-          if (!$("portPanel") || !$("portPanel").open) return;
-          if (e.target.closest("tr.port-row-click") || e.target.closest("button[data-flatten]")) return;
-          openInfoPanel("positions");
-        });
-      }
+      bindDetailsOverlaySummary($("orderLogPanel"), "orderlog");
+      bindDetailsOverlaySummary($("apiJsonPanel"), "api");
+      bindDetailsOverlaySummary($("portPanel"), "positions");
+      bindDetailsOverlaySummary($("splitStockPanel"), "split");
+      bindDetailsOverlaySummary($("corpStockPanel"), "divbb");
       if ($("newsLine")) $("newsLine").addEventListener("click", () => openInfoPanel("news"));
       if ($("microLine")) $("microLine").addEventListener("click", () => openInfoPanel("micro"));
       if ($("metaLine")) $("metaLine").addEventListener("click", () => openInfoPanel("micro"));
@@ -2200,10 +2238,6 @@
     ["watchKindStock","watchKindFund","watchKindCrypto","watchHeldOnly","watchFavFirst","tableDensity","cbConfirmLarge","confirmNotional","resetMode","chartDefaultMode"].forEach((id) => {
       const el = $(id);
       if (el) el.addEventListener("change", () => { savePrefs(); if (lastState && (id === "watchKindStock" || id === "watchKindFund" || id === "watchKindCrypto" || id === "watchHeldOnly" || id === "watchFavFirst" || id === "tableDensity")) paintState(lastState); });
-    });
-    ["orderLogPanel","portPanel"].forEach((id) => {
-      const el = $(id);
-      if (el) el.addEventListener("toggle", savePrefs);
     });
     document.addEventListener("keydown", (e) => {
       const t = e.target;
