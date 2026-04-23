@@ -316,6 +316,40 @@
       pointer-events: none;
     }
     .chart-backdrop.is-open { display: flex; }
+    /* Stacked above chart (2000) so expand panels stay usable if chart was open. */
+    .chart-backdrop.panel-overlay-z { z-index: 2100; }
+    .chart-backdrop.panel-overlay-z.is-open {
+      pointer-events: auto;
+      background: rgba(0, 0, 0, 0.28);
+    }
+    .info-panel-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: min(52vh, 480px);
+      max-height: calc(95vh - 4.5rem);
+      overflow: auto;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.82rem;
+      min-width: 0;
+    }
+    .info-panel-body pre.raw-json-panel {
+      margin: 0;
+      padding: 0.55rem 0.65rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      line-height: 1.45;
+      background: #080a0c;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: min(48vh, 420px);
+    }
+    .order-log-wrap.panel-overlay-order {
+      max-height: none;
+      margin-top: 0;
+      min-height: min(44vh, 400px);
+    }
     .chart-dialog {
       pointer-events: auto;
       background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
@@ -672,11 +706,11 @@
             </div>
           </details>
           <p id="msg" class="ok"></p>
-          <p class="meta-line" id="metaLine"></p>
-          <p class="meta-line" id="microLine" style="font-size:0.68rem; line-height:1.35; color:var(--text-dim)"></p>
-          <p class="meta-line" id="newsLine" style="font-size:0.68rem; line-height:1.35; color:var(--warn)"></p>
-          <details class="debug">
-            <summary>API JSON</summary>
+          <p class="meta-line" id="metaLine" style="cursor:pointer" title="Click for full session / fees line"></p>
+          <p class="meta-line" id="microLine" style="font-size:0.68rem; line-height:1.35; color:var(--text-dim); cursor:pointer" title="Click for full session &amp; microstructure panel"></p>
+          <p class="meta-line" id="newsLine" style="font-size:0.68rem; line-height:1.35; color:var(--warn); cursor:pointer" title="Click for full news feed"></p>
+          <details class="debug" id="apiJsonPanel">
+            <summary style="cursor:pointer" title="Opens full JSON panel when expanded">API JSON</summary>
             <pre id="raw">{}</pre>
           </details>
         </div>
@@ -719,6 +753,15 @@
         <div id="chartContainer"></div>
         <div id="chartStats" style="display:none; padding:0.7rem 0.85rem; font-family:var(--mono); font-size:0.76rem; line-height:1.45"></div>
       </div>
+    </div>
+  </div>
+  <div id="infoPanelModal" class="chart-backdrop panel-overlay-z" aria-hidden="true">
+    <div class="chart-dialog" role="dialog" aria-labelledby="infoPanelTitle" aria-modal="true">
+      <div class="chart-dlg-hdr">
+        <h3 id="infoPanelTitle">Panel</h3>
+        <button type="button" class="chart-close" id="infoPanelClose" title="Close (Esc)" aria-label="Close">&times;</button>
+      </div>
+      <div id="infoPanelBody" class="info-panel-body"></div>
     </div>
   </div>
   <script>
@@ -786,24 +829,19 @@
       const s = v >= 0 ? "+" : "";
       return s + v.toFixed(2) + "%";
     }
-    function renderPortHoldings(s) {
+    function portSummaryLine(s) {
       const p = s.player;
-      const inner = $("portHoldingsInner");
-      const sub = $("portSummarySub");
-      if (!inner) return;
       const h = (p && p.holdings) ? p.holdings : [];
+      if (!h.length) return "";
       const totUn = p && p.holdings_unrealized_usd != null ? p.holdings_unrealized_usd : 0;
-      if (sub) {
-        if (!h.length) {
-          sub.textContent = "";
-        } else {
-          const sgn = totUn >= 0 ? "+" : "";
-          sub.textContent = h.length + " name" + (h.length === 1 ? "" : "s") + "  ·  unreal " + sgn + fmtNum(totUn, 2);
-        }
-      }
+      const sgn = totUn >= 0 ? "+" : "";
+      return h.length + " name" + (h.length === 1 ? "" : "s") + "  ·  unreal " + sgn + fmtNum(totUn, 2);
+    }
+    function buildPortHoldingsInnerHtml(s) {
+      const p = s.player;
+      const h = (p && p.holdings) ? p.holdings : [];
       if (!h.length) {
-        inner.innerHTML = '<p class="port-empty" style="margin:0.25rem 0 0 0">No open positions</p>';
-        return;
+        return '<p class="port-empty" style="margin:0.25rem 0 0 0">No open positions</p>';
       }
       const byT = new Map(s.instruments.map((x) => [x.ticker, x]));
       let html = '<table class="port-holdings"><thead><tr><th>Sym</th><th>Qty</th><th>Avg $</th><th>Mark</th><th>Cost $</th><th>MV $</th><th>Unreal $</th><th>Unreal %</th><th>Last fill</th><th>Action</th></tr></thead><tbody>';
@@ -839,7 +877,14 @@
           '<td><button type="button" class="preset-btn" data-flatten="' + r.ticker + '">flatten</button></td></tr>';
       });
       html += "</tbody></table>";
-      inner.innerHTML = html;
+      return html;
+    }
+    function renderPortHoldings(s) {
+      const inner = $("portHoldingsInner");
+      const sub = $("portSummarySub");
+      if (!inner) return;
+      if (sub) sub.textContent = portSummaryLine(s);
+      inner.innerHTML = buildPortHoldingsInnerHtml(s);
     }
     async function j(url, opts) {
       const o = Object.assign({ headers: { "Content-Type": "application/json" } }, opts || {});
@@ -926,6 +971,7 @@
     }
     const PREF_KEY = "marketsim.ui.prefs.v1";
     let lastState = null;
+    let infoPanelKind = null;
     let favoriteSet = new Set();
     let stickyTicker = "";
     function loadPrefs() {
@@ -1162,16 +1208,13 @@
       });
       updateSortHeaderUI();
     }
-    function renderOrderLog(s) {
-      const tb = $("orderLogBody");
-      if (!tb) return;
+    function buildOrderLogTbodyHtml(s) {
       const rows = s.order_log;
       if (!rows || !rows.length) {
-        tb.innerHTML = '<tr><td colspan="6" class="meta-line" style="padding:0.4rem 0.35rem">No activity yet.</td></tr>';
-        return;
+        return '<tr><td colspan="6" class="meta-line" style="padding:0.4rem 0.35rem">No activity yet.</td></tr>';
       }
       const rev = rows.slice().reverse();
-      tb.innerHTML = rev.map((e) => {
+      return rev.map((e) => {
         const ev = e.event != null ? String(e.event) : "—";
         const tk = e.ticker != null ? e.ticker : "—";
         const isCorpNoOrd = (e.event === "dividend" || e.event === "buyback" || e.event === "split" || e.event === "liquidation");
@@ -1218,6 +1261,96 @@
           '<td style="text-align:left; font-size:0.72rem; line-height:1.3">' + det + "</td></tr>"
         );
       }).join("");
+    }
+    function renderOrderLog(s) {
+      const tb = $("orderLogBody");
+      if (!tb) return;
+      tb.innerHTML = buildOrderLogTbodyHtml(s);
+    }
+    const ORDER_LOG_TABLE_HEAD =
+      "<thead><tr><th>Tick</th><th>Event</th><th>Sym</th><th>Ord</th><th>Side</th><th style=\"text-align:left\">Details</th></tr></thead>";
+    function buildNewsPanelHtml(s) {
+      const arr = s.news;
+      if (!arr || !arr.length) {
+        return '<p class="meta-line" style="margin:0">No headlines yet.</p>';
+      }
+      return arr.slice().reverse().map((nw) => {
+        const tick = nw.sim_tick != null ? "<span style=\"color:var(--text-dim)\">t" + escHtml(String(nw.sim_tick)) + "</span> — " : "";
+        const line = nw.line != null ? escHtml(String(nw.line)) : "\u2014";
+        return '<p class="meta-line" style="margin:0.45rem 0;line-height:1.45;color:var(--warn)">' + tick + line + "</p>";
+      }).join("");
+    }
+    function buildMicroPanelFromDom() {
+      const meta = $("metaLine");
+      const micro = $("microLine");
+      const bits = [];
+      if (meta && meta.textContent && meta.textContent.trim()) {
+        bits.push('<p class="meta-line" style="margin:0 0 0.55rem;line-height:1.5;font-size:0.88rem">' + escHtml(meta.textContent) + "</p>");
+      }
+      if (micro && micro.textContent && micro.textContent.trim()) {
+        bits.push('<p class="meta-line" style="margin:0;line-height:1.5;font-size:0.88rem;color:var(--text-dim)">' + escHtml(micro.textContent) + "</p>");
+      }
+      if (!bits.length) {
+        return '<p class="meta-line" style="margin:0">No session / micro lines yet (advance a tick or trade).</p>';
+      }
+      return bits.join("");
+    }
+    function fillInfoPanelBody(s) {
+      const body = $("infoPanelBody");
+      if (!body || !infoPanelKind) return;
+      if (infoPanelKind === "orderlog") {
+        body.innerHTML =
+          '<p class="meta-line" style="margin:0 0 0.5rem">Fills, fees, rejects, splits, dividends, buybacks (newest first).</p>' +
+          '<div class="order-log-wrap panel-overlay-order"><table style="width:100%;border-collapse:collapse">' +
+          ORDER_LOG_TABLE_HEAD + "<tbody>" + buildOrderLogTbodyHtml(s) + "</tbody></table></div>";
+      } else if (infoPanelKind === "api") {
+        body.innerHTML = '<pre class="raw-json-panel" id="rawPanelMirror"></pre>';
+        const pre = $("rawPanelMirror");
+        if (pre) pre.textContent = s ? JSON.stringify(s, null, 2) : "";
+      } else if (infoPanelKind === "positions") {
+        const sum = portSummaryLine(s);
+        const sub = sum
+          ? '<p class="meta-line" style="margin:0 0 0.5rem;font-family:var(--mono)">' + escHtml(sum) + "</p>"
+          : "";
+        body.innerHTML = sub + '<div class="port-holdings-wrap">' + buildPortHoldingsInnerHtml(s) + "</div>";
+      } else if (infoPanelKind === "news") {
+        body.innerHTML = '<p class="meta-line" style="margin:0 0 0.5rem">Simulator headlines (newest first).</p>' + buildNewsPanelHtml(s);
+      } else if (infoPanelKind === "micro") {
+        body.innerHTML = '<p class="meta-line" style="margin:0 0 0.55rem">Session fees / drift and microstructure (same as footer lines).</p>' + buildMicroPanelFromDom();
+      } else {
+        body.textContent = "";
+      }
+    }
+    function refreshInfoPanelIfOpen(s) {
+      if (infoPanelKind && s) fillInfoPanelBody(s);
+    }
+    function closeInfoPanel() {
+      infoPanelKind = null;
+      const m = $("infoPanelModal");
+      if (m) {
+        m.classList.remove("is-open");
+        m.setAttribute("aria-hidden", "true");
+      }
+      const b = $("infoPanelBody");
+      if (b) b.innerHTML = "";
+    }
+    function openInfoPanel(kind) {
+      const titles = {
+        orderlog: "Order history & audit",
+        api: "API JSON (full state)",
+        positions: "Positions",
+        news: "News",
+        micro: "Session & microstructure",
+      };
+      infoPanelKind = kind;
+      const m = $("infoPanelModal");
+      const t = $("infoPanelTitle");
+      if (t) t.textContent = titles[kind] || "Panel";
+      if (m) {
+        m.classList.add("is-open");
+        m.setAttribute("aria-hidden", "false");
+      }
+      fillInfoPanelBody(lastState);
     }
     function paintState(s) {
       $("raw").textContent = JSON.stringify(s, null, 2);
@@ -1351,6 +1484,7 @@
         }
       }
       refreshOpenChart();
+      refreshInfoPanelIfOpen(s);
     }
     let chartW = null;
     let series = null;
@@ -1654,6 +1788,7 @@
     function openChart(ticker) {
       const tk = String(ticker).trim().toUpperCase();
       if (!tk) return;
+      closeInfoPanel();
       chartOpenTk = tk;
       chartViewMode = ($("chartDefaultMode") && $("chartDefaultMode").value) || "price";
       setChartTabUI();
@@ -1956,11 +2091,84 @@
     }
     if ($("chartClose")) $("chartClose").addEventListener("click", () => closeChart());
     /* No backdrop click-to-close: chart overlay has pointer-events:none; no full-page dim so side panels stay clear. */
+    if ($("infoPanelClose")) $("infoPanelClose").addEventListener("click", () => closeInfoPanel());
+    function bindInfoPanelAutoOpen() {
+      const ol = $("orderLogPanel");
+      if (ol) {
+        ol.addEventListener("toggle", function () {
+          if (ol.open) openInfoPanel("orderlog");
+          else if (infoPanelKind === "orderlog") closeInfoPanel();
+        });
+        ol.addEventListener("click", function (e) {
+          if (!ol.open) return;
+          if (e.target.closest("summary")) return;
+          openInfoPanel("orderlog");
+        });
+      }
+      const api = $("apiJsonPanel");
+      if (api) {
+        api.addEventListener("toggle", function () {
+          if (api.open) openInfoPanel("api");
+          else if (infoPanelKind === "api") closeInfoPanel();
+        });
+        api.addEventListener("click", function (e) {
+          if (!api.open) return;
+          if (e.target.closest("summary")) return;
+          openInfoPanel("api");
+        });
+      }
+      const pp = $("portPanel");
+      if (pp) {
+        pp.addEventListener("toggle", function () {
+          if (pp.open) openInfoPanel("positions");
+          else if (infoPanelKind === "positions") closeInfoPanel();
+        });
+      }
+      const phi = $("portHoldingsInner");
+      if (phi) {
+        phi.addEventListener("click", function (e) {
+          if (!$("portPanel") || !$("portPanel").open) return;
+          if (e.target.closest("tr.port-row-click") || e.target.closest("button[data-flatten]")) return;
+          openInfoPanel("positions");
+        });
+      }
+      if ($("newsLine")) $("newsLine").addEventListener("click", () => openInfoPanel("news"));
+      if ($("microLine")) $("microLine").addEventListener("click", () => openInfoPanel("micro"));
+      if ($("metaLine")) $("metaLine").addEventListener("click", () => openInfoPanel("micro"));
+    }
+    bindInfoPanelAutoOpen();
+    if ($("infoPanelModal")) {
+      $("infoPanelModal").addEventListener("click", (e) => {
+        if (e.target === $("infoPanelModal")) closeInfoPanel();
+      });
+    }
+    if ($("infoPanelBody")) {
+      $("infoPanelBody").addEventListener("click", (e) => {
+        if (infoPanelKind !== "positions") return;
+        const fb = e.target.closest("button[data-flatten]");
+        if (fb) {
+          const tk = fb.getAttribute("data-flatten");
+          doFlatten(tk).catch((err) => showMsg(String(err), false));
+          e.stopPropagation();
+          return;
+        }
+        const tr = e.target.closest("tr.port-row-click[data-ticker]");
+        if (tr) {
+          const tk = tr.getAttribute("data-ticker");
+          closeInfoPanel();
+          openChart(tk);
+          e.stopPropagation();
+        }
+      });
+    }
     if ($("chartBucket")) {
       $("chartBucket").addEventListener("change", () => { if (chartOpenTk) loadAndDrawChart().catch(() => {}); });
     }
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && chartOpenTk) closeChart();
+      if (e.key === "Escape") {
+        if (infoPanelKind) closeInfoPanel();
+        else if (chartOpenTk) closeChart();
+      }
     });
     window.addEventListener("resize", () => {
       if (chartW && $("chartContainer")) {
