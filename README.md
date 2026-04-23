@@ -119,7 +119,9 @@ For mega-cap, use **32 / 4 / 8** together so the special generator activates.
 
 2. **Preset** — `simple` / `easy` / `hard` / `complex` / `free` / `custom`; applied on **New game** (`POST /api/reset` with `mode` and optional `starting_cash` or `startingCash`).
 
-3. **Great Depression** (checkbox) — One scripted crash window (then recovery behavior); read the in-UI hint.
+3. **Margin & shorts** (optional) — In the Session panel, you can enable shorting (including crypto), set max leverage, maintenance rate, and short borrow bps/day; applied on **New game**.
+
+4. **Great Depression** (checkbox) — One scripted crash window (then recovery behavior); read the in-UI hint.
 
 ### Advancing time
 
@@ -131,13 +133,18 @@ For mega-cap, use **32 / 4 / 8** together so the special generator activates.
 
 - Pick a **symbol**, **size** or **cash** for buys, optional **limit price**.
 - **Market / limit** buy and sell buttons call `POST /api/order` (see API below).
+- Order ticket supports quick presets (`+1`, `+10`, `+100`, `25% cash`, `50% cash`, `all cash`), flatten actions, optional large-order confirm, and keyboard shortcuts.
+- Orders enforce symbol execution rules (lot step and tick size); invalid increments are rejected.
 - If the book has no size on the side you need, you may get **insufficient liquidity** (market orders are capped by **resting** bid/ask size unless shorts allow synthetic remainder on sells).
 
 ### Watchlist and chart
 
-- Rows are sortable; **Vol** blends **printed** volume with a **model turnover** component tied to volatility, moves, tape, and supply flow.
+- Rows are sortable/filterable; favorites can be pinned first, and single-click selects the ticker in the order ticket.
+- Double-click a watchlist row (or click a position row) to open the chart.
+- **Vol** blends **printed** volume with a **model turnover** component tied to volatility, moves, tape, and supply flow.
 - **Ask sz** — Total resting ask size (rough cap for a market **buy** without new limits).
-- Click a row (or a position) to open the **candlestick** chart (Lightweight Charts). **API JSON** at the bottom mirrors `GET /api/state` for debugging.
+- Chart supports **Price**, **Mcap**, and **Stats** views, plus bottom volume bars in candle view. You can set a default open mode.
+- **API JSON** at the bottom mirrors `GET /api/state` for debugging.
 
 ### Session controls (left column)
 
@@ -162,14 +169,15 @@ Base URL: same host/port as the web server (default `http://127.0.0.1:8000`).
 | `GET` | `/api/health` | Plain-text liveness |
 | `POST` | `/api/step` | Advance sim (`ticks` and/or `unit`+`n`) |
 | `POST` | `/api/order` | Place market/limit orders (JSON body) |
-| `POST` | `/api/reset` | New game: `mode`, optional `great_depression`, optional `starting_cash` |
+| `POST` | `/api/reset` | New game: `mode`, optional `great_depression`, optional `starting_cash`, optional margin/short settings |
+| `POST` | `/api/flatten` | Flatten one ticker or all open positions |
 | `POST` | `/api/starting-cash` | Set cash at **tick 0** only (flat book); `{"cash": 12345}` |
 | `POST` | `/api/trend-override` | Trend slider + scope |
 | `POST` | `/api/volatility-override` | Volatility slider |
 | `POST` | `/api/stock_split` | Manual forward split (stocks) |
 | `POST` | `/api/stock_dividend` | Cash dividend (stocks) |
 | `POST` | `/api/stock_buyback` | Buyback fraction (stocks) |
-| `GET` | `/api/chart/{ticker}` | OHLC series + optional mcap view |
+| `GET` | `/api/chart/{ticker}` | OHLC + per-candle volume + optional mcap view |
 
 There is **one in-memory game per server process**; restarting Uvicorn clears it.
 
@@ -181,8 +189,10 @@ There is **one in-memory game per server process**; restarting Uvicorn clears it
 - **Funds:** Many fund mids are **overwritten each tick** to track equal-weight basket NAVs (see `Market._sync_ew_basket_fund_mids`).
 - **Supply:** Instruments can carry **`max_units_outstanding`**; crypto may **mint** with dilution; stocks/funds get a tiny **float flow**; caps affect splits and issuance-style logic.
 - **Volume:** Session **volume** grows from **fills** plus **synthetic turnover** and float-related flow so the tape is not only player-driven.
-- **Calendar / liquidity:** Sim **minute-of-day** can widen NPC spreads at the “open”; headlines can temporarily lift σ.
-- **Optional realism:** `GameConfig` / session can include **leverage**, **maintenance margin**, **shorting**, **borrow cost**, **SEC fee on sells**, **overnight gaps** — exposed in `/api/state` when enabled.
+- **Execution realism:** Orders follow symbol-specific **lot step** and **tick size** constraints.
+- **Financing realism:** Carry is charged per position each tick (dynamic instrument funding + configured short borrow baseline).
+- **Calendar / liquidity:** Session-aware spread behavior (listed open/after-hours profile, 24/7 crypto with weekend liquidity effects) and optional listed-only overnight gaps.
+- **Optional realism:** `GameConfig` / session can include **leverage**, **maintenance margin**, **shorting**, **borrow cost**, **SEC-style fee on non-crypto sells**, **overnight gaps** — exposed in `/api/state` when enabled.
 
 For exact numbers and formulas, read **`marketsim/market.py`**, **`marketsim/execution.py`**, and **`marketsim/modes.py`**.
 
