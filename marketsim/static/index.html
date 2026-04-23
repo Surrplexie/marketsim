@@ -89,9 +89,30 @@
       min-width: 0;
     }
     aside {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .aside-panel-stack {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .aside-panel-scroll {
+      flex: 1;
+      min-height: 0;
       overflow-x: hidden;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+    }
+    .aside-panel-footer {
+      flex-shrink: 0;
+      margin-top: auto;
+      padding-top: 0.55rem;
+      border-top: 1px solid var(--border);
     }
     @media (max-width: 1024px) {
       html, body {
@@ -114,7 +135,11 @@
         overflow: visible;
         max-height: none;
         order: 2;
+        display: block;
       }
+      .aside-panel-stack { display: block; }
+      .aside-panel-scroll { overflow: visible; }
+      .aside-panel-footer { margin-top: 0.75rem; }
       section.col-main { order: 1; }
     }
 
@@ -283,7 +308,11 @@
     details.details-overlay-only.order-log-panel > summary::before,
     details.details-overlay-only.debug > summary::before,
     details.details-overlay-only.split-panel > summary::before,
-    details.details-overlay-only.corp-panel > summary::before {
+    details.details-overlay-only.corp-panel > summary::before,
+    details.details-overlay-only.vol-regime-panel > summary::before,
+    details.details-overlay-only.trend-override-panel > summary::before,
+    details.details-overlay-only.starting-cash-panel > summary::before,
+    details.details-overlay-only.preset-session-panel > summary::before {
       content: "▶";
       display: inline-block;
       font-size: 0.5rem;
@@ -458,115 +487,139 @@
 
     <div class="main">
       <aside>
-        <div class="panel">
-          <h2>Time</h2>
-          <div class="row btn-tick">
-            <button type="button" class="primary" id="bt">+1 tick</button>
-            <button type="button" id="b5">+5</button>
-            <button type="button" id="b50">+50</button>
-          </div>
-          <div class="row">
-            <label class="fld">Interval
-              <input id="iunit" value="day" placeholder="day" style="min-width:5rem" />
-            </label>
-            <label class="fld">×
-              <input id="inum" type="number" value="1" min="0" style="width:3.5rem" />
-            </label>
-            <button type="button" class="primary" id="bRunTime" title="Advance by sim time">Run</button>
-          </div>
-          <div class="row" style="align-items:stretch; margin-bottom:0.35rem">
-            <label class="fld" style="flex:1;min-width:0">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.15rem">
-                <span>Auto <input type="checkbox" id="autoRun" style="width:auto;vertical-align:middle;margin:0" title="Run sim in background" /></span>
-                <span id="autoRateVal" style="font-family:var(--mono);font-size:0.8rem;color:var(--accent)">1 tick/s</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:0.35rem">
-                <span style="font-size:0.6rem;color:var(--text-dim);min-width:0.6rem" title="1 sim tick / sec">1</span>
-                <input type="range" id="autoRate" class="auto-tps" min="1" max="50" value="1" title="Sim ticks per second" />
-                <span style="font-size:0.6rem;color:var(--text-dim);min-width:1.1rem;text-align:right" title="50 sim ticks / sec">50</span>
-              </div>
-              <p class="auto-run-hint">Stays on while you trade. Left: 1 tick/s — right: 50 ticks/s.</p>
-            </label>
-          </div>
-          <h2>Trend override</h2>
-          <p class="auto-run-hint" style="margin:0 0 0.35rem 0">Biases sim GBM drift per tick. −10: down + choppy, +10: up. 0 = neutral.</p>
-          <div class="row" style="align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.4rem">
-            <span style="font-size:0.6rem; color:var(--text-dim)">−10</span>
-            <input type="range" id="trendSlider" class="auto-tps" min="-10" max="10" value="0" style="flex:1; min-width:6rem" title="Override drift" />
-            <span style="font-size:0.6rem; color:var(--text-dim)">+10</span>
-            <b id="trendVal" style="font-family:var(--mono); min-width:2rem; color:var(--accent)">0</b>
-          </div>
-          <label class="fld" style="font-size:0.75rem; margin-bottom:0.25rem">Scope
-            <select id="trendScope" title="Which names receive the override">
-              <option value="all">All</option>
-              <option value="equity">Stocks + funds (listed)</option>
-              <option value="stocks">Stocks only</option>
-              <option value="funds">Funds only</option>
-              <option value="crypto">Crypto only</option>
-              <option value="custom">Custom (multi)…</option>
-            </select>
-          </label>
-          <div id="trendCustomWrap" style="display:none; margin:0.25rem 0 0.35rem 0">
-            <label class="fld" style="font-size:0.7rem">Symbols (Ctrl/Cmd+click, Shift+click)
-              <select id="trendCustomTickers" multiple size="5" class="trend-msel" style="min-height:5.5rem; width:100%"></select>
-            </label>
-          </div>
-          <button type="button" class="primary" id="bTrendApply" style="width:100%; margin-top:0.15rem">Apply scope / selection</button>
-          <h2 style="margin-top:0.9rem">Volatility regime</h2>
-          <p class="auto-run-hint" style="margin:0 0 0.35rem 0">0 = off. +10: stronger stock/fund long-run growth &amp; ~10× **vol** (σ) on stocks, funds, and crypto. −10: near-plateau growth &amp; very quiet markets. Global (all names).</p>
-          <div class="row" style="align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.1rem">
-            <span style="font-size:0.6rem; color:var(--text-dim)">−10</span>
-            <input type="range" id="volSlider" class="auto-tps" min="-10" max="10" value="0" style="flex:1; min-width:6rem" title="Override volatility regime" />
-            <span style="font-size:0.6rem; color:var(--text-dim)">+10</span>
-            <b id="volVal" style="font-family:var(--mono); min-width:2rem; color:var(--accent)">0</b>
-          </div>
-          <p id="volMeta" class="auto-run-hint" style="margin:0; min-height:1.1em; font-size:0.65rem"></p>
-          <h2>Session</h2>
-          <label class="fld" style="margin-bottom:0.35rem">Starting cash (USD)
-            <input id="startingCash" type="number" min="0.0001" max="100000000" step="any" value="25000000" inputmode="decimal" title="$0.0001 – $100,000,000. Apply at tick 0 before stepping time, or set before New game." style="width:100%; max-width:14rem" />
-          </label>
-          <div class="row" style="margin-bottom:0.45rem">
-            <button type="button" class="primary" id="bApplyStartingCash" title="Set cash now (tick 0, flat book only)">Apply cash</button>
-          </div>
-          <p class="auto-run-hint" style="margin:0 0 0.5rem 0"><b>New game</b> also applies this value. <b>Apply cash</b> only at tick 0 with no positions or locks.</p>
-          <div class="row">
-            <label class="fld">Preset
-              <select id="resetMode">
-                <option value="simple">simple</option>
-                <option value="easy">easy</option>
-                <option value="hard">hard</option>
-                <option value="complex">complex</option>
-                <option value="free">free</option>
-              </select>
-            </label>
-            <button type="button" class="danger" id="bReset">New game</button>
-          </div>
-          <details class="corp-panel" style="margin:0.55rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
-            <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Margin &amp; shorts</summary>
-            <p class="meta-line" style="margin:0.35rem 0 0.35rem; font-size:0.72rem">Applies on <b>New game</b>. Enables shorting (including crypto), leverage cap, maintenance floor, and borrow fee.</p>
-            <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer;margin-bottom:0.35rem">
-              <input type="checkbox" id="cbShorting" style="margin-top:0.2rem" />
-              <span>Enable shorting (stocks, funds, crypto)</span>
-            </label>
-            <div class="row" style="margin-bottom:0.2rem">
-              <label class="fld">Max leverage
-                <input id="maxLeverage" type="number" min="1" max="10" step="0.01" value="1.0" style="width:6.4rem" />
+        <div class="panel aside-panel-stack">
+          <div class="aside-panel-scroll">
+            <h2>Time</h2>
+            <div class="row btn-tick">
+              <button type="button" class="primary" id="bt">+1 tick</button>
+              <button type="button" id="b5">+5</button>
+              <button type="button" id="b50">+50</button>
+            </div>
+            <div class="row">
+              <label class="fld">Interval
+                <input id="iunit" value="day" placeholder="day" style="min-width:5rem" />
               </label>
-              <label class="fld">Maintenance
-                <input id="maintenanceRate" type="number" min="0" max="0.95" step="0.01" value="0.2" style="width:6.4rem" />
+              <label class="fld">×
+                <input id="inum" type="number" value="1" min="0" style="width:3.5rem" />
+              </label>
+              <button type="button" class="primary" id="bRunTime" title="Advance by sim time">Run</button>
+            </div>
+            <div class="row" style="align-items:stretch; margin-bottom:0.35rem">
+              <label class="fld" style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.15rem">
+                  <span>Auto <input type="checkbox" id="autoRun" style="width:auto;vertical-align:middle;margin:0" title="Run sim in background" /></span>
+                  <span id="autoRateVal" style="font-family:var(--mono);font-size:0.8rem;color:var(--accent)">1 tick/s</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.35rem">
+                  <span style="font-size:0.6rem;color:var(--text-dim);min-width:0.6rem" title="1 sim tick / sec">1</span>
+                  <input type="range" id="autoRate" class="auto-tps" min="1" max="50" value="1" title="Sim ticks per second" />
+                  <span style="font-size:0.6rem;color:var(--text-dim);min-width:1.1rem;text-align:right" title="50 sim ticks / sec">50</span>
+                </div>
+                <p class="auto-run-hint">Stays on while you trade. Left: 1 tick/s — right: 50 ticks/s.</p>
               </label>
             </div>
-            <div class="row" style="margin-bottom:0">
-              <label class="fld">Short borrow (bps/day)
-                <input id="shortBorrowBps" type="number" min="0" max="5000" step="0.01" value="0.0" style="width:8rem" />
-              </label>
-            </div>
-          </details>
-          <p id="greatDepressStatus" class="auto-run-hint" style="margin:0.35rem 0 0.15rem 0;min-height:1em"></p>
-          <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer">
-            <input type="checkbox" id="cbGreatDep" style="margin-top:0.2rem" />
-            <span>Great Depression: one crash in 500–1000 ticks, then <span style="color:var(--text-dim)">most names</span> toward 99% of pre-crash. Option ends after the crash. ~1% of issues stay bad.</span>
-          </label>
+            <details id="volPanel" class="vol-regime-panel details-overlay-only" style="margin:0.65rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
+              <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Volatility regime</summary>
+              <div id="volPanelInner">
+                <p class="auto-run-hint" style="margin:0 0 0.35rem 0">0 = off. +10: stronger stock/fund long-run growth &amp; ~10× **vol** (σ) on stocks, funds, and crypto. −10: near-plateau growth &amp; very quiet markets. Global (all names).</p>
+                <div class="row" style="align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.1rem">
+                  <span style="font-size:0.6rem; color:var(--text-dim)">−10</span>
+                  <input type="range" id="volSlider" class="auto-tps" min="-10" max="10" value="0" style="flex:1; min-width:6rem" title="Override volatility regime" />
+                  <span style="font-size:0.6rem; color:var(--text-dim)">+10</span>
+                  <b id="volVal" style="font-family:var(--mono); min-width:2rem; color:var(--accent)">0</b>
+                </div>
+                <p id="volMeta" class="auto-run-hint" style="margin:0; min-height:1.1em; font-size:0.65rem"></p>
+              </div>
+            </details>
+            <details id="trendPanel" class="trend-override-panel details-overlay-only" style="margin:0.65rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
+              <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Trend override</summary>
+              <div id="trendPanelInner">
+                <p class="auto-run-hint" style="margin:0 0 0.35rem 0">Biases sim GBM drift per tick. −10: down + choppy, +10: up. 0 = neutral.</p>
+                <div class="row" style="align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.4rem">
+                  <span style="font-size:0.6rem; color:var(--text-dim)">−10</span>
+                  <input type="range" id="trendSlider" class="auto-tps" min="-10" max="10" value="0" style="flex:1; min-width:6rem" title="Override drift" />
+                  <span style="font-size:0.6rem; color:var(--text-dim)">+10</span>
+                  <b id="trendVal" style="font-family:var(--mono); min-width:2rem; color:var(--accent)">0</b>
+                </div>
+                <label class="fld" style="font-size:0.75rem; margin-bottom:0.25rem">Scope
+                  <select id="trendScope" title="Which names receive the override">
+                    <option value="all">All</option>
+                    <option value="equity">Stocks + funds (listed)</option>
+                    <option value="stocks">Stocks only</option>
+                    <option value="funds">Funds only</option>
+                    <option value="crypto">Crypto only</option>
+                    <option value="custom">Custom (multi)…</option>
+                  </select>
+                </label>
+                <div id="trendCustomWrap" style="display:none; margin:0.25rem 0 0.35rem 0">
+                  <label class="fld" style="font-size:0.7rem">Symbols (Ctrl/Cmd+click, Shift+click)
+                    <select id="trendCustomTickers" multiple size="5" class="trend-msel" style="min-height:5.5rem; width:100%"></select>
+                  </label>
+                </div>
+                <button type="button" class="primary" id="bTrendApply" style="width:100%; margin-top:0.15rem">Apply scope / selection</button>
+              </div>
+            </details>
+            <details id="startingCashPanel" class="starting-cash-panel details-overlay-only" style="margin:0.65rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
+              <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Starting cash (USD)</summary>
+              <div id="startingCashPanelInner">
+                <label class="fld" style="margin-bottom:0.35rem">Starting cash (USD)
+                  <input id="startingCash" type="number" min="0.0001" max="100000000" step="any" value="25000000" inputmode="decimal" title="$0.0001 – $100,000,000. Apply at tick 0 before stepping time, or set before New game." style="width:100%; max-width:14rem" />
+                </label>
+                <div class="row" style="margin-bottom:0.45rem">
+                  <button type="button" class="primary" id="bApplyStartingCash" title="Set cash now (tick 0, flat book only)">Apply cash</button>
+                </div>
+                <p class="auto-run-hint" style="margin:0"><b>New game</b> also applies this value. <b>Apply cash</b> only at tick 0 with no positions or locks.</p>
+              </div>
+            </details>
+            <details id="marginShortsPanel" class="corp-panel details-overlay-only" style="margin:0.65rem 0 0; padding-top:0.45rem; border-top:1px solid var(--border)">
+              <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)">Margin &amp; shorts</summary>
+              <div id="marginShortsPanelInner">
+                <p class="meta-line" style="margin:0.35rem 0 0.35rem; font-size:0.72rem">Applies on <b>New game</b>. Enables shorting (including crypto), leverage cap, maintenance floor, and borrow fee.</p>
+                <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer;margin-bottom:0.35rem">
+                  <input type="checkbox" id="cbShorting" style="margin-top:0.2rem" />
+                  <span>Enable shorting (stocks, funds, crypto)</span>
+                </label>
+                <div class="row" style="margin-bottom:0.2rem">
+                  <label class="fld">Max leverage
+                    <input id="maxLeverage" type="number" min="1" max="10" step="0.01" value="1.0" style="width:6.4rem" />
+                  </label>
+                  <label class="fld">Maintenance
+                    <input id="maintenanceRate" type="number" min="0" max="0.95" step="0.01" value="0.2" style="width:6.4rem" />
+                  </label>
+                </div>
+                <div class="row" style="margin-bottom:0">
+                  <label class="fld">Short borrow (bps/day)
+                    <input id="shortBorrowBps" type="number" min="0" max="5000" step="0.01" value="0.0" style="width:8rem" />
+                  </label>
+                </div>
+              </div>
+            </details>
+            <p id="greatDepressStatus" class="auto-run-hint" style="margin:0.35rem 0 0.15rem 0;min-height:1em"></p>
+            <label class="fld" style="font-size:0.72rem;align-items:flex-start;gap:0.4rem;cursor:pointer">
+              <input type="checkbox" id="cbGreatDep" style="margin-top:0.2rem" />
+              <span>Great Depression: one crash in 500–1000 ticks, then <span style="color:var(--text-dim)">most names</span> toward 99% of pre-crash. Option ends after the crash. ~1% of issues stay bad.</span>
+            </label>
+          </div>
+          <div class="aside-panel-footer">
+            <details id="presetSessionPanel" class="preset-session-panel details-overlay-only" style="margin:0; padding:0; border:0">
+              <summary style="cursor:pointer; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim)" title="Open preset &amp; new game in panel">Preset · New game</summary>
+              <div id="presetSessionPanelInner">
+                <div class="row" style="justify-content:flex-start; align-items:flex-end; flex-wrap:wrap; gap:0.5rem">
+                  <label class="fld">Preset
+                    <select id="resetMode">
+                      <option value="simple">simple</option>
+                      <option value="easy">easy</option>
+                      <option value="hard">hard</option>
+                      <option value="complex">complex</option>
+                      <option value="free">free</option>
+                    </select>
+                  </label>
+                  <button type="button" class="danger" id="bReset">New game</button>
+                </div>
+                <p class="auto-run-hint" style="margin:0.45rem 0 0; font-size:0.68rem">Preset sets universe / difficulty for the <b>next</b> reset.</p>
+              </div>
+            </details>
+          </div>
         </div>
       </aside>
 
@@ -1287,6 +1340,15 @@
     }
     const ORDER_LOG_TABLE_HEAD =
       "<thead><tr><th>Tick</th><th>Event</th><th>Sym</th><th>Ord</th><th>Side</th><th style=\"text-align:left\">Details</th></tr></thead>";
+    const DETAIL_MOUNT_SPECS = [
+      { kind: "split", mount: "splitStockPanelInner", root: "splitStockPanel" },
+      { kind: "divbb", mount: "corpStockPanelInner", root: "corpStockPanel" },
+      { kind: "margin", mount: "marginShortsPanelInner", root: "marginShortsPanel" },
+      { kind: "starting", mount: "startingCashPanelInner", root: "startingCashPanel" },
+      { kind: "vol", mount: "volPanelInner", root: "volPanel" },
+      { kind: "trend", mount: "trendPanelInner", root: "trendPanel" },
+      { kind: "preset", mount: "presetSessionPanelInner", root: "presetSessionPanel" },
+    ];
     function buildNewsPanelHtml(s) {
       const arr = s.news;
       if (!arr || !arr.length) {
@@ -1313,24 +1375,46 @@
       }
       return bits.join("");
     }
-    function rehomeUnshownStockFormMounts() {
+    function rehomeUnshownDetailMountsFromOverlay() {
       const b = $("infoPanelBody");
       if (!b) return;
-      const splitMount = $("splitStockPanelInner");
-      const splitRoot = $("splitStockPanel");
-      if (splitMount && splitRoot && splitMount.parentElement === b && infoPanelKind !== "split") {
-        splitRoot.appendChild(splitMount);
+      DETAIL_MOUNT_SPECS.forEach(function (spec) {
+        const mount = $(spec.mount);
+        const root = $(spec.root);
+        if (mount && root && mount.parentElement === b && infoPanelKind !== spec.kind) {
+          root.appendChild(mount);
+        }
+      });
+    }
+    function attachDetailMountByKind(kind) {
+      const body = $("infoPanelBody");
+      if (!body) return;
+      let spec = null;
+      for (let i = 0; i < DETAIL_MOUNT_SPECS.length; i++) {
+        if (DETAIL_MOUNT_SPECS[i].kind === kind) {
+          spec = DETAIL_MOUNT_SPECS[i];
+          break;
+        }
       }
-      const corpMount = $("corpStockPanelInner");
-      const corpRoot = $("corpStockPanel");
-      if (corpMount && corpRoot && corpMount.parentElement === b && infoPanelKind !== "divbb") {
-        corpRoot.appendChild(corpMount);
+      if (!spec) {
+        body.textContent = "";
+        return;
+      }
+      const mount = $(spec.mount);
+      const root = $(spec.root);
+      if (!mount || !root) {
+        body.textContent = "";
+        return;
+      }
+      if (mount.parentElement !== body) {
+        body.innerHTML = "";
+        body.appendChild(mount);
       }
     }
     function fillInfoPanelBody(s) {
       const body = $("infoPanelBody");
       if (!body || !infoPanelKind) return;
-      rehomeUnshownStockFormMounts();
+      rehomeUnshownDetailMountsFromOverlay();
       if (infoPanelKind === "orderlog") {
         body.innerHTML =
           '<p class="meta-line" style="margin:0 0 0.5rem">Fills, fees, rejects, splits, dividends, buybacks (newest first).</p>' +
@@ -1350,28 +1434,8 @@
         body.innerHTML = '<p class="meta-line" style="margin:0 0 0.5rem">Simulator headlines (newest first).</p>' + buildNewsPanelHtml(s);
       } else if (infoPanelKind === "micro") {
         body.innerHTML = '<p class="meta-line" style="margin:0 0 0.55rem">Session fees / drift and microstructure (same as footer lines).</p>' + buildMicroPanelFromDom();
-      } else if (infoPanelKind === "split") {
-        const mount = $("splitStockPanelInner");
-        const splitRoot = $("splitStockPanel");
-        if (!mount || !splitRoot) {
-          body.textContent = "";
-          return;
-        }
-        if (mount.parentElement !== body) {
-          body.innerHTML = "";
-          body.appendChild(mount);
-        }
-      } else if (infoPanelKind === "divbb") {
-        const mount = $("corpStockPanelInner");
-        const corpRoot = $("corpStockPanel");
-        if (!mount || !corpRoot) {
-          body.textContent = "";
-          return;
-        }
-        if (mount.parentElement !== body) {
-          body.innerHTML = "";
-          body.appendChild(mount);
-        }
+      } else if (DETAIL_MOUNT_SPECS.some(function (x) { return x.kind === infoPanelKind; })) {
+        attachDetailMountByKind(infoPanelKind);
       } else {
         body.textContent = "";
       }
@@ -1381,12 +1445,11 @@
     }
     function closeInfoPanel() {
       const b = $("infoPanelBody");
-      const splitMount = $("splitStockPanelInner");
-      const splitRoot = $("splitStockPanel");
-      const corpMount = $("corpStockPanelInner");
-      const corpRoot = $("corpStockPanel");
-      if (splitMount && splitRoot && b && splitMount.parentElement === b) splitRoot.appendChild(splitMount);
-      if (corpMount && corpRoot && b && corpMount.parentElement === b) corpRoot.appendChild(corpMount);
+      DETAIL_MOUNT_SPECS.forEach(function (spec) {
+        const mount = $(spec.mount);
+        const root = $(spec.root);
+        if (mount && root && b && mount.parentElement === b) root.appendChild(mount);
+      });
       infoPanelKind = null;
       const m = $("infoPanelModal");
       if (m) {
@@ -1404,6 +1467,11 @@
         micro: "Session & microstructure",
         split: "Manual stock split",
         divbb: "Dividend & buyback (stocks)",
+        vol: "Volatility regime",
+        trend: "Trend override",
+        starting: "Starting cash (USD)",
+        margin: "Margin & shorts",
+        preset: "Preset · New game",
       };
       infoPanelKind = kind;
       const m = $("infoPanelModal");
@@ -2170,6 +2238,11 @@
       bindDetailsOverlaySummary($("portPanel"), "positions");
       bindDetailsOverlaySummary($("splitStockPanel"), "split");
       bindDetailsOverlaySummary($("corpStockPanel"), "divbb");
+      bindDetailsOverlaySummary($("volPanel"), "vol");
+      bindDetailsOverlaySummary($("trendPanel"), "trend");
+      bindDetailsOverlaySummary($("startingCashPanel"), "starting");
+      bindDetailsOverlaySummary($("marginShortsPanel"), "margin");
+      bindDetailsOverlaySummary($("presetSessionPanel"), "preset");
       if ($("newsLine")) $("newsLine").addEventListener("click", () => openInfoPanel("news"));
       if ($("microLine")) $("microLine").addEventListener("click", () => openInfoPanel("micro"));
       if ($("metaLine")) $("metaLine").addEventListener("click", () => openInfoPanel("micro"));
