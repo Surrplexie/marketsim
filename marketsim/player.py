@@ -351,22 +351,46 @@ class Player:
     def charge_borrow_on_shorts(
         self, mkt: Market, *, bps_per_sim_day: float, sim_minutes_per_tick: float
     ) -> None:
-        """Deduct short borrow: *bps* per *sim* day on |short| notional."""
+        """Backward-compatible alias: apply financing with a global short-borrow baseline."""
 
-        b = max(0.0, float(bps_per_sim_day))
-        if b <= 0.0:
-            return
+        self.charge_financing_on_positions(
+            mkt,
+            base_short_borrow_bps_per_sim_day=bps_per_sim_day,
+            sim_minutes_per_tick=sim_minutes_per_tick,
+        )
+
+    def charge_financing_on_positions(
+        self,
+        mkt: Market,
+        *,
+        base_short_borrow_bps_per_sim_day: float,
+        sim_minutes_per_tick: float,
+    ) -> None:
+        """
+        Deduct carrying costs by side and instrument:
+        - shorts: base borrow + market dynamic short funding
+        - longs: market dynamic long funding (e.g. perp-style funding on crypto)
+        """
+
         day_frac = max(1e-12, float(sim_minutes_per_tick) / 1440.0)
+        base_short = max(0.0, float(base_short_borrow_bps_per_sim_day))
         by = mkt.by_ticker()
         for sym, q in list(self.positions.items()):
-            if float(q) >= -MIN_LOT:
+            qq = float(q)
+            if abs(qq) < MIN_LOT:
                 continue
             ins = by.get(str(sym))
             if ins is None:
                 continue
             _, mid, _ = mkt.quote(ins.array_index)
-            n = abs(float(q)) * max(0.0, float(mid))
-            fee = n * b / 10_000.0 * day_frac
+            notional = abs(qq) * max(0.0, float(mid))
+            if notional <= 0.0 or not math.isfinite(notional):
+                continue
+            long_bps, short_bps = mkt.financing_bps_for_index(ins.array_index)
+            bps = float(long_bps) if qq > 0.0 else float(short_bps) + base_short
+            if bps <= 0.0:
+                continue
+            fee = notional * bps / 10_000.0 * day_frac
             if fee > 0.0 and math.isfinite(fee):
                 self.cash -= fee
                 self.fees_paid += fee

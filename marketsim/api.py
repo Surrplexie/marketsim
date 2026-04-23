@@ -26,6 +26,25 @@ STARTING_CASH_MIN_USD = 1e-4
 STARTING_CASH_MAX_USD = 100_000_000.0
 
 
+def _lot_step_for_kind(kind: AssetClass) -> float:
+    return 1e-6 if kind is AssetClass.CRYPTO else 1e-2
+
+
+def _tick_size_for_kind(kind: AssetClass, price: float) -> float:
+    p = max(0.0, float(price))
+    if kind is AssetClass.CRYPTO:
+        if p < 1.0:
+            return 1e-5
+        if p < 100.0:
+            return 1e-4
+        return 1e-2
+    if p < 1.0:
+        return 1e-4
+    if p < 10.0:
+        return 1e-3
+    return 1e-2
+
+
 def get_game() -> Session:
     global _game
     if _game is None:
@@ -64,8 +83,8 @@ def _result_msg(r: Result) -> str:
         Result.NO_CASH: "insufficient cash",
         Result.NO_POSITION: "not enough position",
         Result.NOT_FOUND: "unknown ticker",
-        Result.BAD_SIZE: "invalid size or cash amount (min lot ~1e-8, min notional ~1e-6)",
-        Result.BAD_PRICE: "bad price",
+        Result.BAD_SIZE: "invalid size (fails lot step / min lot) or cash amount (min notional ~1e-6)",
+        Result.BAD_PRICE: "bad price (or not aligned to symbol tick size)",
         Result.NO_LIQUIDITY: "not enough size on the book (asks for buys, bids for sells)",
     }.get(r, str(r))
 
@@ -96,6 +115,14 @@ def _state() -> dict[str, Any]:
                 "ask_liquidity": float(ob.total_resting_qty_asks()),
                 "bid_liquidity": float(ob.total_resting_qty_bids()),
                 "quote": {"bid": b, "mid": mid, "ask": a},
+                "execution_rules": {
+                    "lot_step": _lot_step_for_kind(ins.kind),
+                    "tick_size": _tick_size_for_kind(ins.kind, mid),
+                },
+                "financing_bps_per_sim_day": {
+                    "long": m.financing_bps_for_index(i)[0],
+                    "short": m.financing_bps_for_index(i)[1],
+                },
                 "book": {"bids": ob.depth_bids(4), "asks": ob.depth_asks(4)},
                 "pct_24h": ch,
                 "micro": {

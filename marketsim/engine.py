@@ -44,12 +44,11 @@ class Session:
         self._sim_day_ordinal = max(0, d_cur)
         self.market.step()
         self._maybe_liquidation()
-        if self.player.short_borrow_bps_per_sim_day > 0.0:
-            self.player.charge_borrow_on_shorts(
-                self.market,
-                bps_per_sim_day=self.player.short_borrow_bps_per_sim_day,
-                sim_minutes_per_tick=self.config.sim_minutes_per_tick,
-            )
+        self.player.charge_financing_on_positions(
+            self.market,
+            base_short_borrow_bps_per_sim_day=self.player.short_borrow_bps_per_sim_day,
+            sim_minutes_per_tick=self.config.sim_minutes_per_tick,
+        )
         self._maybe_random_stock_splits()
         self._maybe_random_dividend_buyback()
 

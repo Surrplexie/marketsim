@@ -15,6 +15,42 @@ def _side_s(side: Side) -> str:
     return "buy" if side is Side.BUY else "sell"
 
 
+def _lot_step(ins: Instrument) -> float:
+    if ins.kind is AssetClass.CRYPTO:
+        return 1e-6
+    # Listed names allow fractional sizing, but keep a practical floor.
+    return 1e-2
+
+
+def _tick_size(ins: Instrument, price: float) -> float:
+    p = max(0.0, float(price))
+    if ins.kind is AssetClass.CRYPTO:
+        if p < 1.0:
+            return 1e-5
+        if p < 100.0:
+            return 1e-4
+        return 1e-2
+    if p < 1.0:
+        return 1e-4
+    if p < 10.0:
+        return 1e-3
+    return 1e-2
+
+
+def _is_step_multiple(x: float, step: float) -> bool:
+    if step <= 0.0:
+        return True
+    q = float(x) / step
+    return abs(q - round(q)) <= 1e-9
+
+
+def _floor_to_step(x: float, step: float) -> float:
+    if step <= 0.0:
+        return float(x)
+    q = math.floor((float(x) / step) + 1e-12)
+    return max(0.0, q * step)
+
+
 def _buying_power_mkt(mkt: Market, pl: Player) -> float:
     """Dollar budget for taker *buys* (margin increases effective buying power)."""
 
@@ -162,6 +198,7 @@ def execute_market_buy_cash(
             break
         size *= (b_cap * (1.0 - 1e-10)) / max(c2, 1e-9)
     size = min(size, liq)
+    size = _floor_to_step(size, _lot_step(ins))
     if not is_valid_order_size(size):
         return Result.BAD_SIZE
     return execute_market_order(mkt, pl, ins, Side.BUY, size)
@@ -180,7 +217,7 @@ def execute_limit_buy_cash(
         return Result.NO_CASH
     if not is_valid_cash_notional(b):
         return Result.BAD_SIZE
-    size = b / L
+    size = _floor_to_step(b / L, _lot_step(ins))
     if size < MIN_LOT - 1e-12:
         return Result.NO_CASH
     if not is_valid_order_size(size):
@@ -192,6 +229,9 @@ def execute_market_order(
     mkt: Market, pl: Player, ins: Instrument, side: Side, size: float
 ) -> Result:
     if not is_valid_order_size(size):
+        return Result.BAD_SIZE
+    step = _lot_step(ins)
+    if not _is_step_multiple(float(size), step):
         return Result.BAD_SIZE
     i = ins.array_index
     st = int(mkt.tick)
@@ -312,8 +352,13 @@ def execute_limit_buy(
 ) -> Result:
     if not is_valid_order_size(size):
         return Result.BAD_SIZE
+    step = _lot_step(ins)
+    if not _is_step_multiple(float(size), step):
+        return Result.BAD_SIZE
     L = float(limit_price)
     if L <= 0:
+        return Result.BAD_PRICE
+    if not _is_step_multiple(L, _tick_size(ins, L)):
         return Result.BAD_PRICE
     tkr = ins.ticker
     if float(pl.positions.get(tkr, 0.0)) < -0.5 * MIN_LOT:
@@ -360,8 +405,13 @@ def execute_limit_sell(
 ) -> Result:
     if not is_valid_order_size(size):
         return Result.BAD_SIZE
+    step = _lot_step(ins)
+    if not _is_step_multiple(float(size), step):
+        return Result.BAD_SIZE
     L = float(limit_price)
     if L <= 0:
+        return Result.BAD_PRICE
+    if not _is_step_multiple(L, _tick_size(ins, L)):
         return Result.BAD_PRICE
     tkr = ins.ticker
     if not pl.try_lock_shares_for_sell(tkr, size):

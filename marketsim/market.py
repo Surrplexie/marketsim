@@ -109,6 +109,8 @@ class Market:
     _cal_ask_sh: np.ndarray = field(init=False, repr=False)
     _headline_vol_addon: np.ndarray = field(init=False, repr=False)
     _news: deque = field(init=False, repr=False)
+    _financing_long_bps: np.ndarray = field(init=False, repr=False)
+    _financing_short_bps: np.ndarray = field(init=False, repr=False)
     # Optional UI/API drift bias: -10 = strong downward + noisy, +10 = strong upward, 0 = off.
     _trend_value: int = field(default=0, init=False, repr=False)
     _trend_scope: str = field(default="all", init=False, repr=False)
@@ -188,6 +190,8 @@ class Market:
         self._headline_vol_addon = np.zeros(n, dtype=np.float64)
         self._news = deque(maxlen=40)
         self._cumulative_volume = np.zeros(n, dtype=np.float64)
+        self._financing_long_bps = np.zeros(n, dtype=np.float64)
+        self._financing_short_bps = np.zeros(n, dtype=np.float64)
 
     def record_trade_volume(self, j: int, qty: float) -> None:
         """Add *qty* from CLOB fills to session volume (also grows from natural turnover each *step*)."""
@@ -477,14 +481,18 @@ class Market:
                 maxlen=self._mqb.maxlen,
             )
 
-    def apply_overnight_gaps_bps(self, rng: object, max_abs_bps: float) -> None:
-        """At sim-day roll: random *mid* gap (±*max_abs_bps* per name), shift CLOB and histories."""
+    def apply_overnight_gaps_bps(
+        self, rng: object, max_abs_bps: float, *, listed_only: bool = True
+    ) -> None:
+        """At sim-day roll: random *mid* gap (±*max_abs_bps*), usually listed assets only."""
 
         gmax = max(0.0, float(max_abs_bps))
         if gmax <= 0.0:
             return
         n = int(self._mids.size)
         for j in range(n):
+            if listed_only and not self.instruments[j].is_listed_equity:
+                continue
             g = float(rng.uniform(-gmax, gmax))  # type: ignore[attr-defined]
             if not math.isfinite(g) or abs(g) < 1e-8:
                 continue
@@ -761,7 +769,7 @@ class Market:
         return ranked[:k]
 
     def _apply_opening_calendar_spreads(self) -> None:
-        """Fade wider NPC half-spread over the first *open_liquidity_fade_sim_minutes* of each sim day."""
+        """Session-aware NPC spread shape by asset class (listed session + crypto weekend profile)."""
 
         n = int(self._mids.size)
         if n <= 0:
@@ -770,6 +778,9 @@ class Market:
         fade_m = max(1.0, float(self.open_liquidity_fade_sim_minutes))
         fade = max(0.0, 1.0 - minute / fade_m)
         extra_bps = max(0.0, float(self.open_liquidity_extra_bps_peak)) * fade
+        day_idx = int((int(self._tick) * max(float(self.sim_minutes_per_tick), 1e-9)) // 1440) % 7
+        is_weekend = day_idx in (5, 6)
+        listed_open = 570.0 <= minute <= 960.0  # ~09:30-16:00
         for k in range(n):
             ob = self.books[k]
             lb = float(self._cal_bid_sh[k])
@@ -777,7 +788,19 @@ class Market:
             if lb != 0.0 or la != 0.0:
                 ob.reprice_npc_sides(-lb, -la)
             mid0 = max(float(MIN_MID), float(self._mids[k]))
-            w = mid0 * (extra_bps / 10_000.0) * 0.5
+            ins = self.instruments[k]
+            if ins.is_listed_equity:
+                # Open auction wider, then regular session tighter, after-hours wider again.
+                if listed_open:
+                    eb = extra_bps
+                else:
+                    eb = max(extra_bps, 7.5)
+            elif ins.kind is AssetClass.CRYPTO:
+                # 24/7 crypto: mild weekend liquidity deterioration.
+                eb = 1.6 if is_weekend else 0.6
+            else:
+                eb = extra_bps
+            w = mid0 * (max(0.0, eb) / 10_000.0) * 0.5
             self._cal_bid_sh[k] = -w
             self._cal_ask_sh[k] = w
             if w > 1e-14:
@@ -875,6 +898,50 @@ class Market:
             nav = acc / float(len(members))
             if math.isfinite(nav) and nav > 0.0:
                 self._mids[j] = max(float(MIN_MID), float(nav))
+
+    def _update_financing_regime(self) -> None:
+        """
+        Per-instrument financing bps/day:
+        - crypto: perp-like dynamic funding (can charge longs or shorts)
+        - listed: short-carry premium that rises with vol/off-hours stress
+        """
+
+        n = int(self._mids.size)
+        minute = float(sim_minute_of_day(int(self._tick), self.sim_minutes_per_tick))
+        listed_open = 570.0 <= minute <= 960.0  # ~09:30-16:00
+        for j in range(n):
+            ins = self.instruments[j]
+            mid = max(float(MIN_MID), float(self._mids[j]))
+            sig = float(self._sigma[j])
+            tape_norm = min(2.0, float(self._tape_ema[j]) / max(mid * 2_000_000.0, 1.0))
+            self._financing_long_bps[j] = 0.0
+            self._financing_short_bps[j] = 0.0
+            if ins.kind is AssetClass.CRYPTO:
+                p24 = self.pct_change_24h_sim(j)
+                p24r = float(p24) / 100.0 if p24 is not None and math.isfinite(float(p24)) else 0.0
+                # Positive flow => longs pay shorts; negative flow => shorts pay longs.
+                signed = math.tanh(4.0 * p24r + 0.8 * tape_norm) * 8.0
+                if signed >= 0.0:
+                    self._financing_long_bps[j] = signed
+                else:
+                    self._financing_short_bps[j] = -signed
+                # Structural borrow premium for hard-to-borrow crypto shorts.
+                self._financing_short_bps[j] += min(8.0, 0.4 + 180.0 * sig)
+            else:
+                off_hr = 0.35 if not listed_open else 0.0
+                self._financing_short_bps[j] = min(5.0, 0.1 + 80.0 * sig + off_hr)
+
+    def financing_bps_for_index(self, j: int) -> tuple[float, float]:
+        if 0 <= int(j) < int(self._mids.size):
+            return (float(self._financing_long_bps[int(j)]), float(self._financing_short_bps[int(j)]))
+        return (0.0, 0.0)
+
+    def financing_snapshot(self) -> dict[str, dict[str, float]]:
+        out: dict[str, dict[str, float]] = {}
+        for ins in self.instruments:
+            lb, sb = self.financing_bps_for_index(ins.array_index)
+            out[str(ins.ticker)] = {"long_bps_per_sim_day": lb, "short_bps_per_sim_day": sb}
+        return out
 
     def step(self) -> None:
         self._apply_opening_calendar_spreads()
@@ -979,6 +1046,7 @@ class Market:
             self.books[k].reprice_npcs(d)
             ins.last = float(self._mids[k])
         self._step_micro_tape_and_peer(t0)
+        self._update_financing_regime()
         self._apply_natural_volume_tick(t0)
         self._append_ch24_history()
         self._tick += 1
