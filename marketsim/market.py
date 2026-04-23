@@ -12,6 +12,7 @@ from .enums import Side  # re-export
 from .instrument import (
     AssetClass,
     EW_C1F_EXP,
+    EW_ALL_MINI_PREFIX,
     EW_S10_PREFIX,
     EW_S2F_EXP,
     Instrument,
@@ -1062,6 +1063,15 @@ class Market:
                 raw = list(self._crypto_index)
                 ranked = self._sort_indices_by_performance_or_mcap(raw)
                 take = max(1, int(math.ceil((1.0 * len(ranked)) / 5.0))) if ranked else 0
+                members = ranked[:take]
+            elif sec.startswith(EW_ALL_MINI_PREFIX):
+                raw = list(self._stock_indices)
+                ranked = self._sort_indices_by_performance_or_mcap(raw)
+                try:
+                    topn = int(sec[len(EW_ALL_MINI_PREFIX) :])
+                except Exception:
+                    topn = 0
+                take = max(1, min(len(ranked), topn)) if ranked else 0
                 members = ranked[:take]
             else:
                 continue

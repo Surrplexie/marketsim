@@ -1215,6 +1215,7 @@
       if (s === "ew_top25_stocks") return "EW×25";
       if (s === "ew_top3_crypto") return "EW×c3";
       if (s.indexOf("ew_s10_") === 0) return "S10:" + s.slice(7);
+      if (s.indexOf("ew_allmini_") === 0) return "SALL:" + s.slice(11);
       return s.length > 7 ? s.slice(0, 7) : s;
     }
     function getSortableVal(x, k) {
