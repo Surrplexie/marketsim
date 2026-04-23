@@ -320,14 +320,15 @@ def main() -> None:
     p.add_argument("--host", type=str, default="127.0.0.1", help="[--web] bind address")
     p.add_argument("--port", type=int, default=8000, help="[--web] port")
     args = p.parse_args()
+    cfg = _make_config(args)
     if args.web:
         import uvicorn
-        from .api import app
+        from .api import app, set_game
+        set_game(new_session(custom=cfg))
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
         return
     if args.ticks and args.ticks > 0 and args.advance is not None:
         raise SystemExit("Use only one of --ticks and --advance")
-    cfg = _make_config(args)
     s = new_session(custom=cfg)
     if args.advance is not None:
         try:

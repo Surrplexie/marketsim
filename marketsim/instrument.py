@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import math
 from statistics import mean
 
 # Max float vs initial *listed* shares / fund units (splits cannot exceed this).
@@ -28,6 +29,8 @@ MEGA_SECTOR_ETF_BASKET_N = 10
 # Labels assigned to mega / classic stocks for correlated drift and the S10 sector fund.
 STOCK_SECTOR_KEYS = ("TECH", "HLTH", "FIN", "ENRG", "CNSM", "INDU", "MATR", "UTIL")
 EW_S10_PREFIX = "ew_s10_"
+EW_S2F_EXP = "ew_s2f_exp"
+EW_C1F_EXP = "ew_c1f_exp"
 
 
 # Generic pools for name generation; extend anytime
@@ -133,6 +136,28 @@ class Instrument:
     @property
     def is_listed_equity(self) -> bool:
         return self.kind in (AssetClass.STOCK, AssetClass.FUND)
+
+
+def _exp_weighted_nav(items: list[Instrument], power: float = 1.35) -> float:
+    """
+    Exponential-ish mcap weighting: weight ~ mcap**power (power>1 overweights larger caps).
+    Returns simple mean fallback if totals are degenerate.
+    """
+
+    if not items:
+        return 0.0
+    p = max(1.0, float(power))
+    ws: list[float] = []
+    ps: list[float] = []
+    for x in items:
+        m = max(1.0, float(x.market_cap))
+        w = m ** p
+        ws.append(w)
+        ps.append(float(x.last))
+    tw = float(sum(ws))
+    if tw <= 1e-12 or not (tw > 0.0):
+        return float(mean(ps))
+    return float(sum(w * px for w, px in zip(ws, ps)) / tw)
 
 
 def _make_mega_cap_universe(rng) -> list[Instrument]:
@@ -255,6 +280,19 @@ def _make_mega_cap_universe(rng) -> list[Instrument]:
         ("C3MKT", nav_top3c, "ew_top3_crypto"),
         ("S10SEC", nav_s10, f"{EW_S10_PREFIX}{etf_key}"),
     ]
+    # Auto basket funds:
+    # - 5th: top 2/5 of stocks (exp mcap weighted)
+    # - 6th: top 1/5 of cryptos (exp mcap weighted)
+    top_s = max(1, int(math.ceil((2.0 * len(stocks)) / 5.0)))
+    top_c = max(1, int(math.ceil((1.0 * len(all_crypto)) / 5.0)))
+    nav_s2f = _exp_weighted_nav(stocks[:top_s], power=1.35)
+    nav_c1f = _exp_weighted_nav(all_crypto[:top_c], power=1.35)
+    fund_specs.extend(
+        [
+            ("S2FEXP", nav_s2f, EW_S2F_EXP),
+            ("C1FEXP", nav_c1f, EW_C1F_EXP),
+        ]
+    )
     for j, (ftick, last0, ssec) in enumerate(fund_specs):
         f_mcap = float(rng.uniform(20_000_000_000.0, 80_000_000_000.0))
         units = f_mcap / max(last0, 1e-6)
@@ -285,6 +323,8 @@ def _make_classic_universe(
     fundsyms = _ticker_funds(n_funds, rng) if n_funds else []
     cryposyms = _ticker_crypto(n_crypto, rng) if n_crypto else []
     out: list[Instrument] = []
+    stocks_created: list[Instrument] = []
+    cryptos_created: list[Instrument] = []
     idx = 0
     for t in stocksyms:
         start = float(rng.uniform(20.0, 240.0))
@@ -302,6 +342,7 @@ def _make_classic_universe(
                 array_index=idx,
             )
         )
+        stocks_created.append(out[-1])
         idx += 1
     for t in fundsyms:
         start = float(rng.uniform(12.0, 180.0))
@@ -333,6 +374,48 @@ def _make_classic_universe(
                 last=start,
                 units_outstanding=supply,
                 sector="crypto",
+                array_index=idx,
+            )
+        )
+        cryptos_created.append(out[-1])
+        idx += 1
+    # Auto basket funds:
+    # - 5th style fund: top 2/5 stocks (exp mcap weighted)
+    # - 6th style fund: top 1/5 cryptos (exp mcap weighted)
+    if stocks_created:
+        ss = sorted(stocks_created, key=lambda x: x.market_cap, reverse=True)
+        k = max(1, int(math.ceil((2.0 * len(ss)) / 5.0)))
+        nav = _exp_weighted_nav(ss[:k], power=1.35)
+        f_mcap = float(rng.uniform(20_000_000_000.0, 80_000_000_000.0))
+        units = f_mcap / max(nav, 1e-6)
+        out.append(
+            Instrument(
+                id=idx,
+                ticker="S2FEXP",
+                kind=AssetClass.FUND,
+                base_annual_vol=float(rng.uniform(0.08, 0.22)),
+                last=nav,
+                units_outstanding=units,
+                sector=EW_S2F_EXP,
+                array_index=idx,
+            )
+        )
+        idx += 1
+    if cryptos_created:
+        cc = sorted(cryptos_created, key=lambda x: x.market_cap, reverse=True)
+        k = max(1, int(math.ceil((1.0 * len(cc)) / 5.0)))
+        nav = _exp_weighted_nav(cc[:k], power=1.35)
+        f_mcap = float(rng.uniform(8_000_000_000.0, 45_000_000_000.0))
+        units = f_mcap / max(nav, 1e-6)
+        out.append(
+            Instrument(
+                id=idx,
+                ticker="C1FEXP",
+                kind=AssetClass.FUND,
+                base_annual_vol=float(rng.uniform(0.10, 0.30)),
+                last=nav,
+                units_outstanding=units,
+                sector=EW_C1F_EXP,
                 array_index=idx,
             )
         )

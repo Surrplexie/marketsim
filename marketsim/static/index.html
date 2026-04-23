@@ -495,13 +495,17 @@
         <div class="panel" style="padding-bottom:0">
           <h2 style="margin-bottom:0.4rem">Watchlist</h2>
           <div class="row" style="margin-bottom:0.4rem; align-items:center; gap:0.5rem">
-            <label class="fld">Filter
-              <select id="watchKindFilter">
-                <option value="all">all</option>
-                <option value="stock">stocks</option>
-                <option value="fund">funds</option>
-                <option value="crypto">crypto</option>
-              </select>
+            <label class="fld" style="flex-direction:row;align-items:center;gap:0.3rem;margin:0">
+              <input type="checkbox" id="watchKindStock" checked />
+              <span>stocks</span>
+            </label>
+            <label class="fld" style="flex-direction:row;align-items:center;gap:0.3rem;margin:0">
+              <input type="checkbox" id="watchKindFund" checked />
+              <span>funds</span>
+            </label>
+            <label class="fld" style="flex-direction:row;align-items:center;gap:0.3rem;margin:0">
+              <input type="checkbox" id="watchKindCrypto" checked />
+              <span>crypto</span>
             </label>
             <label class="fld" style="flex-direction:row;align-items:center;gap:0.3rem;margin:0">
               <input type="checkbox" id="watchHeldOnly" />
@@ -695,11 +699,21 @@
   <script>
   (function () {
     const $ = (id) => document.getElementById(id);
-    const fmt = (x, d) => (typeof x === "number" && !isNaN(x) ? x.toFixed(d) : "—");
+    function fmtNum(x, d) {
+      if (x == null || !isFinite(+x)) return "—";
+      return Number(x).toLocaleString(undefined, {
+        minimumFractionDigits: d,
+        maximumFractionDigits: d,
+      });
+    }
+    const fmt = (x, d) => (typeof x === "number" && !isNaN(x) ? fmtNum(x, d) : "—");
     function fmtQty(x) {
       if (x == null || !isFinite(x)) return "—";
       const s = x.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
-      return s || "0";
+      if (!s) return "0";
+      const parts = s.split(".");
+      parts[0] = Number(parts[0]).toLocaleString();
+      return parts.join(".");
     }
     function fmtMcap(n) {
       if (n == null) return "—";
@@ -759,7 +773,7 @@
           sub.textContent = "";
         } else {
           const sgn = totUn >= 0 ? "+" : "";
-          sub.textContent = h.length + " name" + (h.length === 1 ? "" : "s") + "  ·  unreal " + sgn + totUn.toFixed(2);
+          sub.textContent = h.length + " name" + (h.length === 1 ? "" : "s") + "  ·  unreal " + sgn + fmtNum(totUn, 2);
         }
       }
       if (!h.length) {
@@ -770,8 +784,8 @@
       let html = '<table class="port-holdings"><thead><tr><th>Sym</th><th>Qty</th><th>Avg $</th><th>Mark</th><th>Cost $</th><th>MV $</th><th>Unreal $</th><th>Unreal %</th><th>Last fill</th><th>Action</th></tr></thead><tbody>';
       h.forEach((r) => {
         const pct = r.unrealized_pct != null && isFinite(+r.unrealized_pct)
-          ? ((+r.unrealized_pct) >= 0 ? "+" : "") + (+r.unrealized_pct).toFixed(2) + "%" : "—";
-        const unreal = isFinite(+r.unrealized_usd) ? ((+r.unrealized_usd) >= 0 ? "+" : "") + (+r.unrealized_usd).toFixed(2) : "—";
+          ? ((+r.unrealized_pct) >= 0 ? "+" : "") + fmtNum(+r.unrealized_pct, 2) + "%" : "—";
+        const unreal = isFinite(+r.unrealized_usd) ? ((+r.unrealized_usd) >= 0 ? "+" : "") + fmtNum(+r.unrealized_usd, 2) : "—";
         const ucls = (r.unrealized_usd != null && isFinite(+r.unrealized_usd))
           ? ((+r.unrealized_usd) >= 0 ? "pct-up" : "pct-dn")
           : "pct-flat";
@@ -792,8 +806,8 @@
           "<td>" + fmtQty(r.qty) + "</td>" +
           "<td>" + fmt(r.avg_cost, 4) + "</td>" +
           "<td>" + fmt(r.mark, 4) + "</td>" +
-          "<td>" + (r.cost_basis_usd != null ? (+r.cost_basis_usd).toFixed(2) : "—") + "</td>" +
-          "<td>" + (r.market_value_usd != null ? (+r.market_value_usd).toFixed(2) : "—") + "</td>" +
+          "<td>" + (r.cost_basis_usd != null ? fmtNum(+r.cost_basis_usd, 2) : "—") + "</td>" +
+          "<td>" + (r.market_value_usd != null ? fmtNum(+r.market_value_usd, 2) : "—") + "</td>" +
           '<td class="' + ucls + '">' + unreal + "</td>" +
           "<td>" + pct + "</td>" +
           '<td class="last-fill">' + lastCol + "</td>" +
@@ -851,7 +865,7 @@
         paintState(st);
         const ap = st.dividend_applied;
         const msg = ap && ap.cash_received != null
-          ? "Dividend $" + (+ap.usd_per_share).toFixed(4) + "/sh  ·  you +" + (+ap.cash_received).toFixed(2) + " cash on " + t
+          ? "Dividend $" + fmtNum(+ap.usd_per_share, 4) + "/sh  ·  you +$" + fmtNum(+ap.cash_received, 2) + " cash on " + t
           : "Dividend applied on " + t;
         showMsg(msg, true);
         refreshOpenChart();
@@ -877,7 +891,7 @@
         paintState(st);
         const ap = st.buyback_applied;
         const msg = ap
-          ? "Buyback " + p.toFixed(2) + "% of float on " + t + "  ·  " + (+ap.units_outstanding).toFixed(0) + " sh out"
+          ? "Buyback " + fmtNum(p, 2) + "% of float on " + t + "  ·  " + fmtNum(+ap.units_outstanding, 0) + " sh out"
           : "Buyback applied on " + t;
         showMsg(msg, true);
         refreshOpenChart();
@@ -896,7 +910,9 @@
         const p = JSON.parse(raw);
         if (p && Array.isArray(p.favorites)) favoriteSet = new Set(p.favorites.map(String));
         if (p && typeof p.stickyTicker === "string") stickyTicker = p.stickyTicker.toUpperCase();
-        if ($("watchKindFilter") && p.watchKindFilter) $("watchKindFilter").value = p.watchKindFilter;
+        if ($("watchKindStock")) $("watchKindStock").checked = p.watchKindStock !== false;
+        if ($("watchKindFund")) $("watchKindFund").checked = p.watchKindFund !== false;
+        if ($("watchKindCrypto")) $("watchKindCrypto").checked = p.watchKindCrypto !== false;
         if ($("watchHeldOnly")) $("watchHeldOnly").checked = !!p.watchHeldOnly;
         if ($("watchFavFirst")) $("watchFavFirst").checked = !!p.watchFavFirst;
         if ($("tableDensity") && p.tableDensity) $("tableDensity").value = p.tableDensity;
@@ -913,7 +929,9 @@
         localStorage.setItem(PREF_KEY, JSON.stringify({
           favorites: Array.from(favoriteSet),
           stickyTicker: stickyTicker || ($("ticker") ? $("ticker").value : ""),
-          watchKindFilter: $("watchKindFilter") ? $("watchKindFilter").value : "all",
+          watchKindStock: $("watchKindStock") ? !!$("watchKindStock").checked : true,
+          watchKindFund: $("watchKindFund") ? !!$("watchKindFund").checked : true,
+          watchKindCrypto: $("watchKindCrypto") ? !!$("watchKindCrypto").checked : true,
           watchHeldOnly: $("watchHeldOnly") ? !!$("watchHeldOnly").checked : false,
           watchFavFirst: $("watchFavFirst") ? !!$("watchFavFirst").checked : false,
           tableDensity: $("tableDensity") ? $("tableDensity").value : "normal",
@@ -937,17 +955,27 @@
       if (key !== _trendInstrKey) {
         _trendInstrKey = key;
         sel.innerHTML = "";
-        s.instruments.forEach((x) => {
+        s.instruments
+          .slice()
+          .sort((a, b) => String(a.ticker).localeCompare(String(b.ticker), undefined, { sensitivity: "base" }))
+          .forEach((x) => {
           const o = document.createElement("option");
           o.value = x.ticker;
           o.textContent = x.ticker + "  (" + x.kind + ")";
           sel.appendChild(o);
-        });
+          });
       }
       const want = s.trend_override && s.trend_override.custom_tickers
         ? new Set(s.trend_override.custom_tickers)
         : new Set();
       Array.from(sel.options).forEach((o) => { o.selected = want.has(o.value); });
+    }
+    function refreshOrderHintForTicker(tk) {
+      if (!$("orderHint") || !lastState || !lastState.instruments) return;
+      const ins = lastState.instruments.find((x) => String(x.ticker) === String(tk));
+      if (ins && ins.execution_rules) {
+        $("orderHint").textContent = "Rule: lot step " + ins.execution_rules.lot_step + " · tick size " + ins.execution_rules.tick_size;
+      }
     }
     async function postTrend(quiet) {
       const sc = $("trendScope") ? $("trendScope").value : "all";
@@ -1051,11 +1079,18 @@
       const tb = $("tbl");
       tb.innerHTML = "";
       const held = new Set(Object.keys((s.player && s.player.positions) ? s.player.positions : {}).filter((k) => Math.abs(+s.player.positions[k]) > 1e-8));
-      const kindFilter = $("watchKindFilter") ? $("watchKindFilter").value : "all";
+      const ks = $("watchKindStock") ? !!$("watchKindStock").checked : true;
+      const kf = $("watchKindFund") ? !!$("watchKindFund").checked : true;
+      const kc = $("watchKindCrypto") ? !!$("watchKindCrypto").checked : true;
+      const kindAllOff = !ks && !kf && !kc;
       const heldOnly = $("watchHeldOnly") ? !!$("watchHeldOnly").checked : false;
       const favFirst = $("watchFavFirst") ? !!$("watchFavFirst").checked : false;
       let arr = sortInstruments(s.instruments).filter((x) => {
-        if (kindFilter !== "all" && x.kind !== kindFilter) return false;
+        if (!kindAllOff) {
+          if (x.kind === "stock" && !ks) return false;
+          if (x.kind === "fund" && !kf) return false;
+          if (x.kind === "crypto" && !kc) return false;
+        }
         if (heldOnly && !held.has(String(x.ticker))) return false;
         return true;
       });
@@ -1080,7 +1115,7 @@
         const p24 = x.pct_24h;
         const mc = x.micro || {};
         const tps = (mc.tape != null && isFinite(+mc.tape)) ? String(+mc.tape).slice(0, 10) : "—";
-        const wk = (mc.wick && isFinite(+mc.wick.upper)) ? (+mc.wick.upper).toFixed(2) : "—";
+        const wk = (mc.wick && isFinite(+mc.wick.upper)) ? fmtNum(+mc.wick.upper, 2) : "—";
         const ssec = sectorAbbr(x.sector);
         const vols = fmtVolSh(x.cumulative_volume);
         const askL = fmtVolSh(x.ask_liquidity);
@@ -1119,10 +1154,10 @@
         const sd = isCorpNoOrd ? "\u2014" : (e.side != null ? e.side : "—");
         let det = "—";
         if (e.event === "fill") {
-          det = fmt(e.price, 4) + " \u00d7 " + fmtQty(e.qty) + "  ($" + (e.notional_usd != null && isFinite(+e.notional_usd) ? (+e.notional_usd).toFixed(2) : "—") + ")";
+          det = fmt(e.price, 4) + " \u00d7 " + fmtQty(e.qty) + "  ($" + (e.notional_usd != null && isFinite(+e.notional_usd) ? fmtNum(+e.notional_usd, 2) : "—") + ")";
         } else if (e.event === "fee") {
-          const fu = (e.fee_usd != null && isFinite(+e.fee_usd)) ? (+e.fee_usd).toFixed(4) : "—";
-          const nu = (e.notional_usd != null && isFinite(+e.notional_usd)) ? (+e.notional_usd).toFixed(2) : "—";
+          const fu = (e.fee_usd != null && isFinite(+e.fee_usd)) ? fmtNum(+e.fee_usd, 4) : "—";
+          const nu = (e.notional_usd != null && isFinite(+e.notional_usd)) ? fmtNum(+e.notional_usd, 2) : "—";
           det = "taker $" + fu + " on $" + nu;
           if (e.taker_fee_bps != null && isFinite(+e.taker_fee_bps)) {
             det += "  (" + e.taker_fee_bps + " bps)";
@@ -1134,12 +1169,12 @@
           const src = e.source != null ? escHtml(e.source) : "—";
           det = r0 + ":1  \u00b7  " + src;
         } else if (e.event === "dividend") {
-          const cr = (e.cash_received != null && isFinite(+e.cash_received)) ? (+e.cash_received).toFixed(2) : "—";
-          const ups = (e.usd_per_share != null && isFinite(+e.usd_per_share)) ? (+e.usd_per_share).toFixed(4) : "—";
+          const cr = (e.cash_received != null && isFinite(+e.cash_received)) ? fmtNum(+e.cash_received, 2) : "—";
+          const ups = (e.usd_per_share != null && isFinite(+e.usd_per_share)) ? fmtNum(+e.usd_per_share, 4) : "—";
           const src = e.source != null ? escHtml(e.source) : "—";
           det = "$" + ups + "/sh ex-div  \u2192  +$" + cr + "  \u00b7  " + src;
         } else if (e.event === "buyback") {
-          const ff = (e.float_fraction != null && isFinite(+e.float_fraction)) ? ((+e.float_fraction) * 100).toFixed(2) + "%" : "—";
+          const ff = (e.float_fraction != null && isFinite(+e.float_fraction)) ? fmtNum((+e.float_fraction) * 100, 2) + "%" : "—";
           const uo = (e.units_outstanding != null && isFinite(+e.units_outstanding)) ? escHtml(String(Math.round(+e.units_outstanding))) : "—";
           const src = e.source != null ? escHtml(e.source) : "—";
           det = "retire " + ff + " float  \u00b7  " + uo + " sh out  \u00b7  " + src;
@@ -1230,10 +1265,10 @@
         const t = s.tick != null ? +s.tick : 0;
         $("bApplyStartingCash").disabled = t !== 0;
       }
-      $("cash").textContent = p.cash.toFixed(2);
-      if ($("fees")) $("fees").textContent = (p.fees_paid != null ? p.fees_paid : 0).toFixed(2);
-      $("lca").textContent = p.locked_cash.toFixed(2);
-      $("eq").textContent = p.equity.toFixed(2);
+      $("cash").textContent = fmtNum(p.cash, 2);
+      if ($("fees")) $("fees").textContent = fmtNum((p.fees_paid != null ? p.fees_paid : 0), 2);
+      $("lca").textContent = fmtNum(p.locked_cash, 2);
+      $("eq").textContent = fmtNum(p.equity, 2);
       const sel = $("ticker");
       const current = (sel && sel.value) ? sel.value : stickyTicker;
       sel.innerHTML = "";
@@ -1360,7 +1395,7 @@
       }
       const dUsd = cl - o;
       const dPct = o !== 0 ? (100 * (cl - o)) / o : 0;
-      const f = (n, dec) => (isFinite(n) ? n.toFixed(dec) : "—");
+      const f = (n, dec) => (isFinite(n) ? fmtNum(n, dec) : "—");
       const fu = (n) => (isFinite(n) ? (Math.abs(n) < 1e3 ? f(n, 0) : fmtMcapShort(n)) : "—");
       const ucls = dUsd >= 0 ? "hud-up" : "hud-dn";
       const sign = dUsd >= 0 ? "+" : "";
@@ -1435,7 +1470,7 @@
             localization: {
               priceFormatter: function (p) {
                 if (p == null || !isFinite(p)) return String(p);
-                return (+p).toFixed(4);
+                return fmtNum(+p, 4);
               }
             }
           });
@@ -1701,7 +1736,7 @@
         const cash = lastState && lastState.player ? (+lastState.player.cash || 0) : 0;
         if ($("sizingCash")) $("sizingCash").checked = true;
         if ($("allCash")) $("allCash").checked = false;
-        $("size").value = String((cash * frac).toFixed(2));
+        $("size").value = String(fmtNum((cash * frac), 2).replace(/,/g, ""));
         syncBuySizingUI();
         return;
       }
@@ -1744,7 +1779,7 @@
         else if (body.all_cash) est = lastState && lastState.player ? Math.max(0, +lastState.player.cash || 0) : 0;
         else if (body.size != null && q != null && isFinite(+body.size) && isFinite(+q)) est = Math.abs(+body.size) * Math.abs(+q);
         if (est >= lim) {
-          const ok = window.confirm("Submit large order est $" + est.toFixed(2) + "?");
+          const ok = window.confirm("Submit large order est $" + fmtNum(est, 2) + "?");
           if (!ok) return;
         }
       }
@@ -1862,8 +1897,8 @@
           const tk = tr.getAttribute("data-ticker");
           if ($("ticker")) $("ticker").value = tk;
           stickyTicker = tk || stickyTicker;
+          refreshOrderHintForTicker(tk);
           savePrefs();
-          if (lastState) paintState(lastState);
         }
       });
       $("tbl").addEventListener("dblclick", (e) => {
@@ -1919,9 +1954,9 @@
     if ($("chartTabStats")) $("chartTabStats").onclick = function () { onChartTab("stats"); };
     if ($("bFlattenAll")) $("bFlattenAll").onclick = () => doFlatten(null).catch((e) => showMsg(String(e), false));
     if ($("ticker")) $("ticker").addEventListener("change", () => { stickyTicker = $("ticker").value; savePrefs(); if (lastState) paintState(lastState); });
-    ["watchKindFilter","watchHeldOnly","watchFavFirst","tableDensity","cbConfirmLarge","confirmNotional","resetMode","chartDefaultMode"].forEach((id) => {
+    ["watchKindStock","watchKindFund","watchKindCrypto","watchHeldOnly","watchFavFirst","tableDensity","cbConfirmLarge","confirmNotional","resetMode","chartDefaultMode"].forEach((id) => {
       const el = $(id);
-      if (el) el.addEventListener("change", () => { savePrefs(); if (lastState && (id === "watchKindFilter" || id === "watchHeldOnly" || id === "watchFavFirst" || id === "tableDensity")) paintState(lastState); });
+      if (el) el.addEventListener("change", () => { savePrefs(); if (lastState && (id === "watchKindStock" || id === "watchKindFund" || id === "watchKindCrypto" || id === "watchHeldOnly" || id === "watchFavFirst" || id === "tableDensity")) paintState(lastState); });
     });
     ["orderLogPanel","portPanel"].forEach((id) => {
       const el = $(id);

@@ -135,6 +135,7 @@ For mega-cap, use **32 / 4 / 8** together so the special generator activates.
 - **Market / limit** buy and sell buttons call `POST /api/order` (see API below).
 - Order ticket supports quick presets (`+1`, `+10`, `+100`, `25% cash`, `50% cash`, `all cash`), flatten actions, optional large-order confirm, and keyboard shortcuts.
 - Orders enforce symbol execution rules (lot step and tick size); invalid increments are rejected.
+- Non-abbreviated numeric displays use thousands separators in the GUI (e.g., `43,000.00`), while abbreviated views remain abbreviated (`43K`, `4T`, etc.).
 - If the book has no size on the side you need, you may get **insufficient liquidity** (market orders are capped by **resting** bid/ask size unless shorts allow synthetic remainder on sells).
 
 ### Watchlist and chart

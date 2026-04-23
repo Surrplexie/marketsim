@@ -11,7 +11,9 @@ from .clob import OrderBook, seed_liquidity
 from .enums import Side  # re-export
 from .instrument import (
     AssetClass,
+    EW_C1F_EXP,
     EW_S10_PREFIX,
+    EW_S2F_EXP,
     Instrument,
     MEGA_FUND_BASKET_N1,
     MEGA_FUND_BASKET_N2,
@@ -900,14 +902,38 @@ class Market:
                 members = self._sort_indices_by_performance_or_mcap(raw)[
                     : int(MEGA_SECTOR_ETF_BASKET_N)
                 ]
+            elif sec == EW_S2F_EXP:
+                raw = list(self._stock_indices)
+                ranked = self._sort_indices_by_performance_or_mcap(raw)
+                take = max(1, int(math.ceil((2.0 * len(ranked)) / 5.0))) if ranked else 0
+                members = ranked[:take]
+            elif sec == EW_C1F_EXP:
+                raw = list(self._crypto_index)
+                ranked = self._sort_indices_by_performance_or_mcap(raw)
+                take = max(1, int(math.ceil((1.0 * len(ranked)) / 5.0))) if ranked else 0
+                members = ranked[:take]
             else:
                 continue
             if not members:
                 continue
-            acc = 0.0
-            for i in members:
-                acc += float(self._mids[i])
-            nav = acc / float(len(members))
+            if sec in (EW_S2F_EXP, EW_C1F_EXP):
+                # Exponential-ish mcap weighting: larger caps get disproportionate weight.
+                vals: list[tuple[float, float]] = []
+                for i in members:
+                    cap = max(1.0, float(self._mids[i]) * float(self.instruments[i].units_outstanding))
+                    w = cap ** 1.35
+                    vals.append((w, float(self._mids[i])))
+                tw = float(sum(w for w, _ in vals))
+                nav = (
+                    float(sum(w * px for w, px in vals) / tw)
+                    if tw > 1e-12
+                    else float(sum(float(self._mids[i]) for i in members) / float(len(members)))
+                )
+            else:
+                acc = 0.0
+                for i in members:
+                    acc += float(self._mids[i])
+                nav = acc / float(len(members))
             if math.isfinite(nav) and nav > 0.0:
                 self._mids[j] = max(float(MIN_MID), float(nav))
 
