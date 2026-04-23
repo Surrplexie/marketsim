@@ -1066,6 +1066,11 @@
         if ($("confirmNotional") && isFinite(+p.confirmNotional)) $("confirmNotional").value = String(+p.confirmNotional);
         if ($("resetMode") && p.resetMode) $("resetMode").value = p.resetMode;
         if ($("chartDefaultMode") && p.chartDefaultMode) $("chartDefaultMode").value = p.chartDefaultMode;
+        if ($("autoRun") && p.autoRun === true) $("autoRun").checked = true;
+        if ($("autoRate") && isFinite(+p.autoRate)) {
+          const ar = Math.max(1, Math.min(50, Math.round(+p.autoRate)));
+          $("autoRate").value = String(ar);
+        }
       } catch (e) { /* ignore */ }
     }
     function savePrefs() {
@@ -1083,6 +1088,8 @@
           confirmNotional: $("confirmNotional") ? +$("confirmNotional").value || 250000 : 250000,
           resetMode: $("resetMode") ? $("resetMode").value : "simple",
           chartDefaultMode: $("chartDefaultMode") ? $("chartDefaultMode").value : "price",
+          autoRun: $("autoRun") ? !!$("autoRun").checked : false,
+          autoRate: $("autoRate") ? getAutoTps() : 1,
         }));
       } catch (e) { /* ignore */ }
     }
@@ -1954,6 +1961,7 @@
       paintState(s);
     }
     let autoTimer = null;
+    let _autoRunErrLogTs = 0;
     function getAutoTps() {
       const el = $("autoRate");
       if (!el) return 1;
@@ -1979,7 +1987,13 @@
         const tps = getAutoTps();
         j("/api/step", { method: "POST", body: JSON.stringify({ ticks: tps }) })
           .then((s) => { lastState = s; paintState(s); })
-          .catch((e) => { showMsg(String(e), false); if ($("autoRun")) $("autoRun").checked = false; stopAutoRun(); });
+          .catch((e) => {
+            const now = Date.now();
+            if (now - _autoRunErrLogTs > 2500) {
+              _autoRunErrLogTs = now;
+              showMsg("Auto-run tick failed (still on): " + String(e), false);
+            }
+          });
       };
       autoTimer = setInterval(tick, 1000);
     }
@@ -2120,7 +2134,6 @@
       closeChart();
       stopAutoRun();
       _trendInstrKey = "";
-      if ($("autoRun")) $("autoRun").checked = false;
       const scEl = $("startingCash");
       const raw = scEl && scEl.value != null ? String(scEl.value).trim() : "";
       const c0 = parseFloat(raw);
@@ -2143,6 +2156,7 @@
       await refresh();
       showMsg("New session", true);
       savePrefs();
+      if ($("autoRun") && $("autoRun").checked) startAutoRun();
     }
     $("bt").onclick = () => doStep(1);
     $("b5").onclick = () => doStep(5);
@@ -2160,10 +2174,14 @@
       $("autoRun").addEventListener("change", () => {
         if ($("autoRun").checked) startAutoRun();
         else stopAutoRun();
+        savePrefs();
       });
     }
     if ($("autoRate")) {
-      $("autoRate").addEventListener("input", syncAutoRateLabel);
+      $("autoRate").addEventListener("input", function () {
+        syncAutoRateLabel();
+        savePrefs();
+      });
     }
     syncAutoRateLabel();
     if ($("trendSlider")) {
@@ -2329,7 +2347,11 @@
     });
     loadPrefs();
     savePrefs();
-    refresh().catch((e) => showMsg(String(e), false));
+    refresh()
+      .then(function () {
+        if ($("autoRun") && $("autoRun").checked) startAutoRun();
+      })
+      .catch((e) => showMsg(String(e), false));
   })();
   </script>
 </body>
