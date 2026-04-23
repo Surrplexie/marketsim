@@ -39,37 +39,70 @@ CRYPTO_PREFIXES = ("moon", "zero", "meta", "flux", "dark", "neo", "hyper", "quan
 CRYPTO_SUFFIXES = ("coin", "cash", "bit", "token", "link", "pad", "swap", "fi")
 
 
+def _build_unique_tickers(
+    n: int,
+    rng,
+    prefixes: tuple[str, ...],
+    suffixes: tuple[str, ...],
+    *,
+    combine,
+    fallback_prefix: str,
+    start: int = 1,
+) -> list[str]:
+    """
+    Build up to *n* unique tickers from prefix/suffix pools, then fall back to
+    numbered symbols if caller asks for more than the cartesian product can provide.
+    """
+
+    if n <= 0:
+        return []
+    combos = [combine(p, s) for p in prefixes for s in suffixes]
+    # Preserve seed-determinism by using RNG for the base cartesian shuffle.
+    rng.shuffle(combos)
+    chosen = combos[:n]
+    if len(chosen) < n:
+        used = set(chosen)
+        k = start
+        while len(chosen) < n:
+            t = f"{fallback_prefix}{k:03d}"
+            if t not in used:
+                chosen.append(t)
+                used.add(t)
+            k += 1
+    return sorted(chosen)
+
+
 def _ticker_stocks(n: int, rng) -> list[str]:
-    out: set[str] = set()
-    while len(out) < n:
-        a = str(rng.choice(STOCK_PREFIXES))
-        b = str(rng.choice(STOCK_SUFFIXES))
-        t = f"{a}{b[:3]}"
-        if t not in out:
-            out.add(t)
-    return sorted(out)
+    return _build_unique_tickers(
+        n,
+        rng,
+        STOCK_PREFIXES,
+        STOCK_SUFFIXES,
+        combine=lambda a, b: f"{a}{b[:3]}",
+        fallback_prefix="STK",
+    )
 
 
 def _ticker_funds(n: int, rng) -> list[str]:
-    out: set[str] = set()
-    while len(out) < n:
-        a = str(rng.choice(FUND_PREFIXES))
-        b = str(rng.choice(FUND_SUFFIXES))
-        t = f"{a}{b}"
-        if t not in out:
-            out.add(t)
-    return sorted(out)
+    return _build_unique_tickers(
+        n,
+        rng,
+        FUND_PREFIXES,
+        FUND_SUFFIXES,
+        combine=lambda a, b: f"{a}{b}",
+        fallback_prefix="FND",
+    )
 
 
 def _ticker_crypto(n: int, rng) -> list[str]:
-    out: set[str] = set()
-    while len(out) < n:
-        a = str(rng.choice(CRYPTO_PREFIXES))
-        b = str(rng.choice(CRYPTO_SUFFIXES))
-        t = f"{a[:4]}{b}".upper()
-        if t not in out:
-            out.add(t)
-    return sorted(out)
+    return _build_unique_tickers(
+        n,
+        rng,
+        CRYPTO_PREFIXES,
+        CRYPTO_SUFFIXES,
+        combine=lambda a, b: f"{a[:4]}{b}".upper(),
+        fallback_prefix="CRY",
+    )
 
 
 @dataclass
